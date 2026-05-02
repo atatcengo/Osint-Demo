@@ -11,6 +11,7 @@ export * from "./errorResponse";
 export * from "./healthStatus";
 export * from "./markdownReport";
 export * from "./osintConfig";
+export * from "./scanHistoryEntry";
 export * from "./scanRequest";
 export * from "./scanResult";
 export * from "./scanResultErrors";

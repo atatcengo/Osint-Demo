@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: osint
     description: OSINT scanning operations
+  - name: history
+    description: Scan history operations
 paths:
   /healthz:
     get:
@@ -89,6 +91,86 @@ paths:
                 $ref: "#/components/schemas/MarkdownReport"
         "400":
           description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /history:
+    get:
+      operationId: listScanHistory
+      tags: [history]
+      summary: List all saved scan history entries
+      responses:
+        "200":
+          description: List of scan history entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScanHistoryEntry"
+    post:
+      operationId: saveScanResult
+      tags: [history]
+      summary: Save a scan result to history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanResult"
+      responses:
+        "201":
+          description: Saved history entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanHistoryEntry"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /history/{id}:
+    get:
+      operationId: getScanHistoryEntry
+      tags: [history]
+      summary: Get a specific scan history entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Scan history entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanHistoryEntry"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteScanHistoryEntry
+      tags: [history]
+      summary: Delete a scan history entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
           content:
             application/json:
               schema:
@@ -248,6 +330,22 @@ components:
         - dns
         - shodanConfigured
         - virusTotalConfigured
+    ScanHistoryEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        domain:
+          type: string
+        scannedAt:
+          type: string
+        result:
+          $ref: "#/components/schemas/ScanResult"
+      required:
+        - id
+        - domain
+        - scannedAt
+        - result
     MarkdownReport:
       type: object
       properties:

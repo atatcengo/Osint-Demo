@@ -2,8 +2,18 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Search, Download, ShieldAlert, Activity, AlertCircle, CheckCircle2, XCircle, Database, Server, Globe, Key } from "lucide-react";
-import { useRunOsintScan, useGenerateOsintReport, useGetOsintConfig, getGetOsintConfigQueryKey } from "@workspace/api-client-react";
+import { Search, Download, ShieldAlert, Activity, AlertCircle, CheckCircle2, XCircle, Database, Server, Globe, Key, History, Trash2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { 
+  useRunOsintScan, 
+  useGenerateOsintReport, 
+  useGetOsintConfig, 
+  getGetOsintConfigQueryKey,
+  useListScanHistory,
+  getListScanHistoryQueryKey,
+  useSaveScanResult,
+  useDeleteScanHistoryEntry
+} from "@workspace/api-client-react";
 import type { ScanResult } from "@workspace/api-client-react/src/generated/api.schemas";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 const formSchema = z.object({
   domain: z.string().regex(/^(?!:\/\/)(?!https?:\/\/)([a-zA-Z0-9-_]+\.)+[a-zA-Z]{2,}$/, "Must be a valid domain name (e.g. example.com). No http:// or paths."),
@@ -21,11 +32,34 @@ const formSchema = z.object({
 
 export default function Home() {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const queryClient = useQueryClient();
 
   const { data: config } = useGetOsintConfig({
     query: {
       enabled: true,
       queryKey: getGetOsintConfigQueryKey(),
+    }
+  });
+
+  const { data: history } = useListScanHistory({
+    query: {
+      queryKey: getListScanHistoryQueryKey(),
+    }
+  });
+
+  const saveScan = useSaveScanResult({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListScanHistoryQueryKey() });
+      }
+    }
+  });
+
+  const deleteHistoryEntry = useDeleteScanHistoryEntry({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListScanHistoryQueryKey() });
+      }
     }
   });
 
@@ -44,10 +78,16 @@ export default function Home() {
     try {
       const result = await runScan.mutateAsync({ data: { domain: values.domain } });
       setScanResult(result);
+      await saveScan.mutateAsync({ data: result });
     } catch (error) {
       console.error(error);
     }
   }
+
+  const loadHistoryResult = (result: ScanResult) => {
+    setScanResult(result);
+    form.setValue("domain", result.domain);
+  };
 
   const handleDownload = async () => {
     if (!scanResult) return;
@@ -83,7 +123,67 @@ export default function Home() {
             </div>
             
             <div className="flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-2 bg-secondary/50 px-3 py-1.5 rounded border border-border">
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" className="border-primary/30 hover:bg-primary/10 h-auto py-1.5 px-3 text-xs">
+                    <History className="w-3.5 h-3.5 mr-2" />
+                    History
+                  </Button>
+                </SheetTrigger>
+                <SheetContent className="bg-background border-l-border/50 font-mono w-full sm:max-w-md overflow-y-auto">
+                  <SheetHeader className="mb-6">
+                    <SheetTitle className="text-primary flex items-center gap-2 tracking-tight">
+                      <History className="w-5 h-5" />
+                      SCAN_HISTORY
+                    </SheetTitle>
+                  </SheetHeader>
+                  
+                  <div className="space-y-4">
+                    {!history || history.length === 0 ? (
+                      <div className="text-sm text-muted-foreground text-center py-8">
+                        No previous scans found.
+                      </div>
+                    ) : (
+                      history.map((entry) => (
+                        <div key={entry.id} className="group flex flex-col gap-2 p-3 border border-border/50 rounded-lg bg-card/50 hover:bg-secondary/30 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-primary truncate max-w-[200px]">{entry.domain}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(entry.scannedAt).toLocaleString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                          <div className="flex gap-2 mt-1">
+                            <Button 
+                              variant="secondary" 
+                              size="sm" 
+                              className="flex-1 h-8 text-xs font-bold"
+                              onClick={() => loadHistoryResult(entry.result)}
+                            >
+                              LOAD_RESULT
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              size="sm" 
+                              className="h-8 w-8 p-0"
+                              onClick={() => deleteHistoryEntry.mutate({ id: entry.id })}
+                              disabled={deleteHistoryEntry.isPending}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </SheetContent>
+              </Sheet>
+
+              <div className="flex items-center gap-2 bg-secondary/50 px-3 py-1.5 rounded border border-border hidden md:flex">
                 <Database className="w-3.5 h-3.5 text-muted-foreground" />
                 <span className="text-muted-foreground">Shodan:</span>
                 {config?.shodanConfigured ? (
@@ -92,7 +192,7 @@ export default function Home() {
                   <span className="text-muted-foreground flex items-center gap-1"><XCircle className="w-3 h-3"/> Missing Key</span>
                 )}
               </div>
-              <div className="flex items-center gap-2 bg-secondary/50 px-3 py-1.5 rounded border border-border">
+              <div className="flex items-center gap-2 bg-secondary/50 px-3 py-1.5 rounded border border-border hidden md:flex">
                 <ShieldAlert className="w-3.5 h-3.5 text-muted-foreground" />
                 <span className="text-muted-foreground">VirusTotal:</span>
                 {config?.virusTotalConfigured ? (

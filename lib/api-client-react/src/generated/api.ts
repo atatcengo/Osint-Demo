@@ -21,6 +21,7 @@ import type {
   HealthStatus,
   MarkdownReport,
   OsintConfig,
+  ScanHistoryEntry,
   ScanRequest,
   ScanResult,
 } from "./api.schemas";
@@ -356,4 +357,336 @@ export const useGenerateOsintReport = <
   TContext
 > => {
   return useMutation(getGenerateOsintReportMutationOptions(options));
+};
+
+/**
+ * @summary List all saved scan history entries
+ */
+export const getListScanHistoryUrl = () => {
+  return `/api/history`;
+};
+
+export const listScanHistory = async (
+  options?: RequestInit,
+): Promise<ScanHistoryEntry[]> => {
+  return customFetch<ScanHistoryEntry[]>(getListScanHistoryUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListScanHistoryQueryKey = () => {
+  return [`/api/history`] as const;
+};
+
+export const getListScanHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof listScanHistory>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listScanHistory>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListScanHistoryQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listScanHistory>>> = ({
+    signal,
+  }) => listScanHistory({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listScanHistory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListScanHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listScanHistory>>
+>;
+export type ListScanHistoryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all saved scan history entries
+ */
+
+export function useListScanHistory<
+  TData = Awaited<ReturnType<typeof listScanHistory>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listScanHistory>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListScanHistoryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Save a scan result to history
+ */
+export const getSaveScanResultUrl = () => {
+  return `/api/history`;
+};
+
+export const saveScanResult = async (
+  scanResult: ScanResult,
+  options?: RequestInit,
+): Promise<ScanHistoryEntry> => {
+  return customFetch<ScanHistoryEntry>(getSaveScanResultUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(scanResult),
+  });
+};
+
+export const getSaveScanResultMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveScanResult>>,
+    TError,
+    { data: BodyType<ScanResult> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof saveScanResult>>,
+  TError,
+  { data: BodyType<ScanResult> },
+  TContext
+> => {
+  const mutationKey = ["saveScanResult"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof saveScanResult>>,
+    { data: BodyType<ScanResult> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return saveScanResult(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SaveScanResultMutationResult = NonNullable<
+  Awaited<ReturnType<typeof saveScanResult>>
+>;
+export type SaveScanResultMutationBody = BodyType<ScanResult>;
+export type SaveScanResultMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Save a scan result to history
+ */
+export const useSaveScanResult = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveScanResult>>,
+    TError,
+    { data: BodyType<ScanResult> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof saveScanResult>>,
+  TError,
+  { data: BodyType<ScanResult> },
+  TContext
+> => {
+  return useMutation(getSaveScanResultMutationOptions(options));
+};
+
+/**
+ * @summary Get a specific scan history entry
+ */
+export const getGetScanHistoryEntryUrl = (id: number) => {
+  return `/api/history/${id}`;
+};
+
+export const getScanHistoryEntry = async (
+  id: number,
+  options?: RequestInit,
+): Promise<ScanHistoryEntry> => {
+  return customFetch<ScanHistoryEntry>(getGetScanHistoryEntryUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetScanHistoryEntryQueryKey = (id: number) => {
+  return [`/api/history/${id}`] as const;
+};
+
+export const getGetScanHistoryEntryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getScanHistoryEntry>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getScanHistoryEntry>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetScanHistoryEntryQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getScanHistoryEntry>>
+  > = ({ signal }) => getScanHistoryEntry(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getScanHistoryEntry>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetScanHistoryEntryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getScanHistoryEntry>>
+>;
+export type GetScanHistoryEntryQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get a specific scan history entry
+ */
+
+export function useGetScanHistoryEntry<
+  TData = Awaited<ReturnType<typeof getScanHistoryEntry>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getScanHistoryEntry>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetScanHistoryEntryQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Delete a scan history entry
+ */
+export const getDeleteScanHistoryEntryUrl = (id: number) => {
+  return `/api/history/${id}`;
+};
+
+export const deleteScanHistoryEntry = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteScanHistoryEntryUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteScanHistoryEntryMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteScanHistoryEntry>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteScanHistoryEntry>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteScanHistoryEntry"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteScanHistoryEntry>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteScanHistoryEntry(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteScanHistoryEntryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteScanHistoryEntry>>
+>;
+
+export type DeleteScanHistoryEntryMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete a scan history entry
+ */
+export const useDeleteScanHistoryEntry = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteScanHistoryEntry>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteScanHistoryEntry>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteScanHistoryEntryMutationOptions(options));
 };

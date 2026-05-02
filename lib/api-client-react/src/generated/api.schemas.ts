@@ -67,6 +67,13 @@ export interface ScanResult {
   errors?: ScanResultErrors;
 }
 
+export interface ScanHistoryEntry {
+  id: number;
+  domain: string;
+  scannedAt: string;
+  result: ScanResult;
+}
+
 export interface MarkdownReport {
   content: string;
   filename: string;

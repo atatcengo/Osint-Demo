@@ -130,3 +130,173 @@ export const GenerateOsintReportResponse = zod.object({
   content: zod.string(),
   filename: zod.string(),
 });
+
+/**
+ * @summary List all saved scan history entries
+ */
+export const ListScanHistoryResponseItem = zod.object({
+  id: zod.number(),
+  domain: zod.string(),
+  scannedAt: zod.string(),
+  result: zod.object({
+    domain: zod.string(),
+    timestamp: zod.string(),
+    subdomains: zod.array(
+      zod.object({
+        name: zod.string(),
+      }),
+    ),
+    dns: zod.object({
+      A: zod.array(zod.string()),
+      MX: zod.array(zod.string()),
+      TXT: zod.array(zod.string()),
+      NS: zod.array(zod.string()),
+    }),
+    shodan: zod
+      .array(
+        zod.object({
+          ip: zod.string(),
+          ports: zod.array(zod.number()),
+          hostnames: zod.array(zod.string()),
+          org: zod.string(),
+          isp: zod.string(),
+          country: zod.string(),
+          tags: zod.array(zod.string()),
+          vulns: zod
+            .array(zod.string())
+            .describe(
+              "CVEs reported by Shodan (not confirmed vulnerabilities)",
+            ),
+        }),
+      )
+      .nullish(),
+    shodanConfigured: zod.boolean(),
+    virusTotal: zod
+      .object({
+        harmless: zod.number(),
+        suspicious: zod.number(),
+        malicious: zod.number(),
+        undetected: zod.number(),
+        reputation: zod.number(),
+        categories: zod.record(zod.string(), zod.string()).optional(),
+      })
+      .nullish(),
+    virusTotalConfigured: zod.boolean(),
+    errors: zod.record(zod.string(), zod.string()).optional(),
+  }),
+});
+export const ListScanHistoryResponse = zod.array(ListScanHistoryResponseItem);
+
+/**
+ * @summary Save a scan result to history
+ */
+export const SaveScanResultBody = zod.object({
+  domain: zod.string(),
+  timestamp: zod.string(),
+  subdomains: zod.array(
+    zod.object({
+      name: zod.string(),
+    }),
+  ),
+  dns: zod.object({
+    A: zod.array(zod.string()),
+    MX: zod.array(zod.string()),
+    TXT: zod.array(zod.string()),
+    NS: zod.array(zod.string()),
+  }),
+  shodan: zod
+    .array(
+      zod.object({
+        ip: zod.string(),
+        ports: zod.array(zod.number()),
+        hostnames: zod.array(zod.string()),
+        org: zod.string(),
+        isp: zod.string(),
+        country: zod.string(),
+        tags: zod.array(zod.string()),
+        vulns: zod
+          .array(zod.string())
+          .describe("CVEs reported by Shodan (not confirmed vulnerabilities)"),
+      }),
+    )
+    .nullish(),
+  shodanConfigured: zod.boolean(),
+  virusTotal: zod
+    .object({
+      harmless: zod.number(),
+      suspicious: zod.number(),
+      malicious: zod.number(),
+      undetected: zod.number(),
+      reputation: zod.number(),
+      categories: zod.record(zod.string(), zod.string()).optional(),
+    })
+    .nullish(),
+  virusTotalConfigured: zod.boolean(),
+  errors: zod.record(zod.string(), zod.string()).optional(),
+});
+
+/**
+ * @summary Get a specific scan history entry
+ */
+export const GetScanHistoryEntryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetScanHistoryEntryResponse = zod.object({
+  id: zod.number(),
+  domain: zod.string(),
+  scannedAt: zod.string(),
+  result: zod.object({
+    domain: zod.string(),
+    timestamp: zod.string(),
+    subdomains: zod.array(
+      zod.object({
+        name: zod.string(),
+      }),
+    ),
+    dns: zod.object({
+      A: zod.array(zod.string()),
+      MX: zod.array(zod.string()),
+      TXT: zod.array(zod.string()),
+      NS: zod.array(zod.string()),
+    }),
+    shodan: zod
+      .array(
+        zod.object({
+          ip: zod.string(),
+          ports: zod.array(zod.number()),
+          hostnames: zod.array(zod.string()),
+          org: zod.string(),
+          isp: zod.string(),
+          country: zod.string(),
+          tags: zod.array(zod.string()),
+          vulns: zod
+            .array(zod.string())
+            .describe(
+              "CVEs reported by Shodan (not confirmed vulnerabilities)",
+            ),
+        }),
+      )
+      .nullish(),
+    shodanConfigured: zod.boolean(),
+    virusTotal: zod
+      .object({
+        harmless: zod.number(),
+        suspicious: zod.number(),
+        malicious: zod.number(),
+        undetected: zod.number(),
+        reputation: zod.number(),
+        categories: zod.record(zod.string(), zod.string()).optional(),
+      })
+      .nullish(),
+    virusTotalConfigured: zod.boolean(),
+    errors: zod.record(zod.string(), zod.string()).optional(),
+  }),
+});
+
+/**
+ * @summary Delete a scan history entry
+ */
+export const DeleteScanHistoryEntryParams = zod.object({
+  id: zod.coerce.number(),
+});
