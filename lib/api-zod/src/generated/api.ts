@@ -14,3 +14,119 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Returns which optional API integrations are configured
+ * @summary Get OSINT API key configuration
+ */
+export const GetOsintConfigResponse = zod.object({
+  shodanConfigured: zod.boolean(),
+  virusTotalConfigured: zod.boolean(),
+});
+
+/**
+ * @summary Run a passive OSINT scan on a domain
+ */
+export const RunOsintScanBody = zod.object({
+  domain: zod
+    .string()
+    .describe("Domain to scan (e.g. example.com or sub.example.com)"),
+});
+
+export const RunOsintScanResponse = zod.object({
+  domain: zod.string(),
+  timestamp: zod.string(),
+  subdomains: zod.array(
+    zod.object({
+      name: zod.string(),
+    }),
+  ),
+  dns: zod.object({
+    A: zod.array(zod.string()),
+    MX: zod.array(zod.string()),
+    TXT: zod.array(zod.string()),
+    NS: zod.array(zod.string()),
+  }),
+  shodan: zod
+    .array(
+      zod.object({
+        ip: zod.string(),
+        ports: zod.array(zod.number()),
+        hostnames: zod.array(zod.string()),
+        org: zod.string(),
+        isp: zod.string(),
+        country: zod.string(),
+        tags: zod.array(zod.string()),
+        vulns: zod
+          .array(zod.string())
+          .describe("CVEs reported by Shodan (not confirmed vulnerabilities)"),
+      }),
+    )
+    .nullish(),
+  shodanConfigured: zod.boolean(),
+  virusTotal: zod
+    .object({
+      harmless: zod.number(),
+      suspicious: zod.number(),
+      malicious: zod.number(),
+      undetected: zod.number(),
+      reputation: zod.number(),
+      categories: zod.record(zod.string(), zod.string()).optional(),
+    })
+    .nullish(),
+  virusTotalConfigured: zod.boolean(),
+  errors: zod.record(zod.string(), zod.string()).optional(),
+});
+
+/**
+ * @summary Generate a Markdown report from scan results
+ */
+export const GenerateOsintReportBody = zod.object({
+  domain: zod.string(),
+  timestamp: zod.string(),
+  subdomains: zod.array(
+    zod.object({
+      name: zod.string(),
+    }),
+  ),
+  dns: zod.object({
+    A: zod.array(zod.string()),
+    MX: zod.array(zod.string()),
+    TXT: zod.array(zod.string()),
+    NS: zod.array(zod.string()),
+  }),
+  shodan: zod
+    .array(
+      zod.object({
+        ip: zod.string(),
+        ports: zod.array(zod.number()),
+        hostnames: zod.array(zod.string()),
+        org: zod.string(),
+        isp: zod.string(),
+        country: zod.string(),
+        tags: zod.array(zod.string()),
+        vulns: zod
+          .array(zod.string())
+          .describe("CVEs reported by Shodan (not confirmed vulnerabilities)"),
+      }),
+    )
+    .nullish(),
+  shodanConfigured: zod.boolean(),
+  virusTotal: zod
+    .object({
+      harmless: zod.number(),
+      suspicious: zod.number(),
+      malicious: zod.number(),
+      undetected: zod.number(),
+      reputation: zod.number(),
+      categories: zod.record(zod.string(), zod.string()).optional(),
+    })
+    .nullish(),
+  virusTotalConfigured: zod.boolean(),
+  errors: zod.record(zod.string(), zod.string()).optional(),
+});
+
+export const GenerateOsintReportResponse = zod.object({
+  content: zod.string(),
+  filename: zod.string(),
+});

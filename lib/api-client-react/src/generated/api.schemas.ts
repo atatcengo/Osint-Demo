@@ -8,3 +8,70 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface OsintConfig {
+  shodanConfigured: boolean;
+  virusTotalConfigured: boolean;
+}
+
+export interface ScanRequest {
+  /** Domain to scan (e.g. example.com or sub.example.com) */
+  domain: string;
+}
+
+export interface SubdomainEntry {
+  name: string;
+}
+
+export interface DnsRecords {
+  A: string[];
+  MX: string[];
+  TXT: string[];
+  NS: string[];
+}
+
+export interface ShodanHostInfo {
+  ip: string;
+  ports: number[];
+  hostnames: string[];
+  org: string;
+  isp: string;
+  country: string;
+  tags: string[];
+  /** CVEs reported by Shodan (not confirmed vulnerabilities) */
+  vulns: string[];
+}
+
+export type VirusTotalInfoCategories = { [key: string]: string };
+
+export interface VirusTotalInfo {
+  harmless: number;
+  suspicious: number;
+  malicious: number;
+  undetected: number;
+  reputation: number;
+  categories?: VirusTotalInfoCategories;
+}
+
+export type ScanResultErrors = { [key: string]: string };
+
+export interface ScanResult {
+  domain: string;
+  timestamp: string;
+  subdomains: SubdomainEntry[];
+  dns: DnsRecords;
+  shodan?: ShodanHostInfo[] | null;
+  shodanConfigured: boolean;
+  virusTotal?: VirusTotalInfo | null;
+  virusTotalConfigured: boolean;
+  errors?: ScanResultErrors;
+}
+
+export interface MarkdownReport {
+  content: string;
+  filename: string;
+}
+
+export interface ErrorResponse {
+  error: string;
+}

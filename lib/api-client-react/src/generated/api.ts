@@ -5,18 +5,28 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  ErrorResponse,
+  HealthStatus,
+  MarkdownReport,
+  OsintConfig,
+  ScanRequest,
+  ScanResult,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -99,3 +109,251 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Returns which optional API integrations are configured
+ * @summary Get OSINT API key configuration
+ */
+export const getGetOsintConfigUrl = () => {
+  return `/api/osint/config`;
+};
+
+export const getOsintConfig = async (
+  options?: RequestInit,
+): Promise<OsintConfig> => {
+  return customFetch<OsintConfig>(getGetOsintConfigUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetOsintConfigQueryKey = () => {
+  return [`/api/osint/config`] as const;
+};
+
+export const getGetOsintConfigQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOsintConfig>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getOsintConfig>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetOsintConfigQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getOsintConfig>>> = ({
+    signal,
+  }) => getOsintConfig({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOsintConfig>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOsintConfigQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOsintConfig>>
+>;
+export type GetOsintConfigQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get OSINT API key configuration
+ */
+
+export function useGetOsintConfig<
+  TData = Awaited<ReturnType<typeof getOsintConfig>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getOsintConfig>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOsintConfigQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Run a passive OSINT scan on a domain
+ */
+export const getRunOsintScanUrl = () => {
+  return `/api/osint/scan`;
+};
+
+export const runOsintScan = async (
+  scanRequest: ScanRequest,
+  options?: RequestInit,
+): Promise<ScanResult> => {
+  return customFetch<ScanResult>(getRunOsintScanUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(scanRequest),
+  });
+};
+
+export const getRunOsintScanMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runOsintScan>>,
+    TError,
+    { data: BodyType<ScanRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof runOsintScan>>,
+  TError,
+  { data: BodyType<ScanRequest> },
+  TContext
+> => {
+  const mutationKey = ["runOsintScan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof runOsintScan>>,
+    { data: BodyType<ScanRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return runOsintScan(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RunOsintScanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof runOsintScan>>
+>;
+export type RunOsintScanMutationBody = BodyType<ScanRequest>;
+export type RunOsintScanMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Run a passive OSINT scan on a domain
+ */
+export const useRunOsintScan = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runOsintScan>>,
+    TError,
+    { data: BodyType<ScanRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof runOsintScan>>,
+  TError,
+  { data: BodyType<ScanRequest> },
+  TContext
+> => {
+  return useMutation(getRunOsintScanMutationOptions(options));
+};
+
+/**
+ * @summary Generate a Markdown report from scan results
+ */
+export const getGenerateOsintReportUrl = () => {
+  return `/api/osint/report`;
+};
+
+export const generateOsintReport = async (
+  scanResult: ScanResult,
+  options?: RequestInit,
+): Promise<MarkdownReport> => {
+  return customFetch<MarkdownReport>(getGenerateOsintReportUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(scanResult),
+  });
+};
+
+export const getGenerateOsintReportMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateOsintReport>>,
+    TError,
+    { data: BodyType<ScanResult> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateOsintReport>>,
+  TError,
+  { data: BodyType<ScanResult> },
+  TContext
+> => {
+  const mutationKey = ["generateOsintReport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateOsintReport>>,
+    { data: BodyType<ScanResult> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateOsintReport(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateOsintReportMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateOsintReport>>
+>;
+export type GenerateOsintReportMutationBody = BodyType<ScanResult>;
+export type GenerateOsintReportMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Generate a Markdown report from scan results
+ */
+export const useGenerateOsintReport = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateOsintReport>>,
+    TError,
+    { data: BodyType<ScanResult> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateOsintReport>>,
+  TError,
+  { data: BodyType<ScanResult> },
+  TContext
+> => {
+  return useMutation(getGenerateOsintReportMutationOptions(options));
+};

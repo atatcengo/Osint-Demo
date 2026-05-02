@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: osint
+    description: OSINT scanning operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,73 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /osint/config:
+    get:
+      operationId: getOsintConfig
+      tags: [osint]
+      summary: Get OSINT API key configuration
+      description: Returns which optional API integrations are configured
+      responses:
+        "200":
+          description: Config status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OsintConfig"
+  /osint/scan:
+    post:
+      operationId: runOsintScan
+      tags: [osint]
+      summary: Run a passive OSINT scan on a domain
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanRequest"
+      responses:
+        "200":
+          description: Scan results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanResult"
+        "400":
+          description: Invalid domain
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /osint/report:
+    post:
+      operationId: generateOsintReport
+      tags: [osint]
+      summary: Generate a Markdown report from scan results
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanResult"
+      responses:
+        "200":
+          description: Markdown report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarkdownReport"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +102,166 @@ components:
           type: string
       required:
         - status
-
+    OsintConfig:
+      type: object
+      properties:
+        shodanConfigured:
+          type: boolean
+        virusTotalConfigured:
+          type: boolean
+      required:
+        - shodanConfigured
+        - virusTotalConfigured
+    ScanRequest:
+      type: object
+      properties:
+        domain:
+          type: string
+          description: Domain to scan (e.g. example.com or sub.example.com)
+      required:
+        - domain
+    SubdomainEntry:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+        - name
+    DnsRecords:
+      type: object
+      properties:
+        A:
+          type: array
+          items:
+            type: string
+        MX:
+          type: array
+          items:
+            type: string
+        TXT:
+          type: array
+          items:
+            type: string
+        NS:
+          type: array
+          items:
+            type: string
+      required:
+        - A
+        - MX
+        - TXT
+        - NS
+    ShodanHostInfo:
+      type: object
+      properties:
+        ip:
+          type: string
+        ports:
+          type: array
+          items:
+            type: integer
+        hostnames:
+          type: array
+          items:
+            type: string
+        org:
+          type: string
+        isp:
+          type: string
+        country:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        vulns:
+          type: array
+          items:
+            type: string
+          description: CVEs reported by Shodan (not confirmed vulnerabilities)
+      required:
+        - ip
+        - ports
+        - hostnames
+        - org
+        - isp
+        - country
+        - tags
+        - vulns
+    VirusTotalInfo:
+      type: object
+      properties:
+        harmless:
+          type: integer
+        suspicious:
+          type: integer
+        malicious:
+          type: integer
+        undetected:
+          type: integer
+        reputation:
+          type: integer
+        categories:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+        - harmless
+        - suspicious
+        - malicious
+        - undetected
+        - reputation
+    ScanResult:
+      type: object
+      properties:
+        domain:
+          type: string
+        timestamp:
+          type: string
+        subdomains:
+          type: array
+          items:
+            $ref: "#/components/schemas/SubdomainEntry"
+        dns:
+          $ref: "#/components/schemas/DnsRecords"
+        shodan:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ShodanHostInfo"
+        shodanConfigured:
+          type: boolean
+        virusTotal:
+          nullable: true
+          oneOf:
+            - $ref: "#/components/schemas/VirusTotalInfo"
+        virusTotalConfigured:
+          type: boolean
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+        - domain
+        - timestamp
+        - subdomains
+        - dns
+        - shodanConfigured
+        - virusTotalConfigured
+    MarkdownReport:
+      type: object
+      properties:
+        content:
+          type: string
+        filename:
+          type: string
+      required:
+        - content
+        - filename
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error

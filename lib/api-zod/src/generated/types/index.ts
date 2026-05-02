@@ -6,4 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./dnsRecords";
+export * from "./errorResponse";
 export * from "./healthStatus";
+export * from "./markdownReport";
+export * from "./osintConfig";
+export * from "./scanRequest";
+export * from "./scanResult";
+export * from "./scanResultErrors";
+export * from "./shodanHostInfo";
+export * from "./subdomainEntry";
+export * from "./virusTotalInfo";
+export * from "./virusTotalInfoCategories";

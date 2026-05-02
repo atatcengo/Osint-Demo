@@ -1,0 +1,91 @@
+Create a beginner-friendly Python OSINT demo project for a university homework presentation.
+
+Project goal:
+Build a passive OSINT web app that takes a domain name, such as biga.bel.tr, and generates a clean security-footprint summary.
+
+Important safety rules:
+- Do not perform active vulnerability scanning.
+- Do not brute force directories.
+- Do not test logins.
+- Do not exploit anything.
+- Only use passive/public APIs and public data sources.
+- The app is for educational OSINT reporting only.
+
+Tech stack:
+- Python
+- Streamlit for the web interface
+- requests
+- python-dotenv
+
+App features:
+1. A simple Streamlit UI with:
+   - Title: “Passive OSINT Demo”
+   - Domain input field
+   - Button: “Run OSINT Check”
+   - Results shown in clean sections and tables
+
+2. Domain validation:
+   - Accept domains like example.com or biga.bel.tr
+   - Reject URLs with http://, https://, paths, or suspicious characters
+   - Show a helpful error message if the input is invalid
+
+3. Passive DNS / subdomain discovery:
+   - Query crt.sh using:
+     https://crt.sh/?q=%25.DOMAIN&output=json
+   - Extract unique subdomains
+   - Remove duplicates
+   - Display results in a table
+
+4. DNS lookup:
+   - Resolve A records, MX records, TXT records, and NS records
+   - Use safe DNS resolution libraries or public DNS-over-HTTPS
+   - Display each record type in separate tables
+
+5. Shodan integration:
+   - Use SHODAN_API_KEY from environment variables
+   - If no key is found, skip Shodan and show: “Shodan API key not configured.”
+   - If a key exists, query Shodan for discovered IP addresses
+   - Show open ports, hostnames, organization, ISP, country, and any available tags
+   - Do not interpret CVEs as confirmed vulnerabilities; label them as “reported by Shodan”
+
+6. VirusTotal integration:
+   - Use VIRUSTOTAL_API_KEY from environment variables
+   - If no key is found, skip VirusTotal and show: “VirusTotal API key not configured.”
+   - Query VirusTotal domain report endpoint
+   - Display harmless/suspicious/malicious reputation counts if available
+
+7. Report export:
+   - Add a button to download results as a Markdown file
+   - The Markdown report should include:
+     - Target domain
+     - Date/time
+     - Subdomains
+     - DNS records
+     - Shodan summary
+     - VirusTotal summary
+     - Ethical note: “This report was generated using passive OSINT sources only.”
+
+8. Code quality:
+   - Split logic into clear functions:
+     - validate_domain()
+     - get_crtsh_subdomains()
+     - get_dns_records()
+     - get_shodan_info()
+     - get_virustotal_info()
+     - generate_markdown_report()
+   - Add comments explaining each function
+   - Handle API errors, rate limits, empty results, and invalid responses gracefully
+   - Keep the design simple and presentation-friendly
+
+9. Create a README.md explaining:
+   - What the app does
+   - How to add API keys in Replit Secrets
+   - How to run the app
+   - Ethical limitations
+   - Example domain: biga.bel.tr
+
+Please generate all needed files, including:
+- app.py
+- requirements.txt
+- README.md
+- .env.example
