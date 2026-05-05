@@ -12,6 +12,10 @@ export interface HealthStatus {
 export interface OsintConfig {
   shodanConfigured: boolean;
   virusTotalConfigured: boolean;
+  urlscanConfigured: boolean;
+  abuseIpDbConfigured: boolean;
+  securityTrailsConfigured: boolean;
+  censysConfigured: boolean;
 }
 
 export interface ScanRequest {
@@ -53,6 +57,69 @@ export interface VirusTotalInfo {
   categories?: VirusTotalInfoCategories;
 }
 
+export interface RdapInfo {
+  registrar?: string;
+  registrationDate?: string;
+  expirationDate?: string;
+  updatedDate?: string;
+  status: string[];
+  nameservers: string[];
+  abuseContacts: string[];
+}
+
+export interface WaybackCapture {
+  url: string;
+  timestamp: string;
+  statusCode?: string;
+  mimeType?: string;
+}
+
+export interface WaybackInfo {
+  captures: WaybackCapture[];
+}
+
+export interface UrlscanResult {
+  url: string;
+  pageDomain?: string;
+  ip?: string;
+  country?: string;
+  server?: string;
+  scannedAt?: string;
+  resultUrl?: string;
+  screenshotUrl?: string;
+}
+
+export interface UrlscanInfo {
+  total: number;
+  results: UrlscanResult[];
+}
+
+export interface AbuseIpInfo {
+  ip: string;
+  abuseConfidenceScore: number;
+  totalReports: number;
+  countryCode?: string;
+  isp?: string;
+  domain?: string;
+  lastReportedAt?: string;
+}
+
+export interface SecurityTrailsInfo {
+  subdomains: string[];
+}
+
+export interface CensysHostInfo {
+  ip: string;
+  services: string[];
+  location?: string;
+  autonomousSystem?: string;
+}
+
+export interface CensysInfo {
+  total: number;
+  hosts: CensysHostInfo[];
+}
+
 export type ScanResultErrors = { [key: string]: string };
 
 export interface ScanResult {
@@ -60,6 +127,16 @@ export interface ScanResult {
   timestamp: string;
   subdomains: SubdomainEntry[];
   dns: DnsRecords;
+  rdap?: RdapInfo | null;
+  wayback?: WaybackInfo | null;
+  urlscan?: UrlscanInfo | null;
+  urlscanConfigured?: boolean;
+  abuseIpDb?: AbuseIpInfo[] | null;
+  abuseIpDbConfigured?: boolean;
+  securityTrails?: SecurityTrailsInfo | null;
+  securityTrailsConfigured?: boolean;
+  censys?: CensysInfo | null;
+  censysConfigured?: boolean;
   shodan?: ShodanHostInfo[] | null;
   shodanConfigured: boolean;
   virusTotal?: VirusTotalInfo | null;

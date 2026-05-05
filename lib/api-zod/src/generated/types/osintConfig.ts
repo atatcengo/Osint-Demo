@@ -9,4 +9,8 @@
 export interface OsintConfig {
   shodanConfigured: boolean;
   virusTotalConfigured: boolean;
+  urlscanConfigured: boolean;
+  abuseIpDbConfigured: boolean;
+  securityTrailsConfigured: boolean;
+  censysConfigured: boolean;
 }

@@ -6,16 +6,25 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./abuseIpInfo";
+export * from "./censysHostInfo";
+export * from "./censysInfo";
 export * from "./dnsRecords";
 export * from "./errorResponse";
 export * from "./healthStatus";
 export * from "./markdownReport";
 export * from "./osintConfig";
+export * from "./rdapInfo";
 export * from "./scanHistoryEntry";
 export * from "./scanRequest";
 export * from "./scanResult";
 export * from "./scanResultErrors";
+export * from "./securityTrailsInfo";
 export * from "./shodanHostInfo";
 export * from "./subdomainEntry";
+export * from "./urlscanInfo";
+export * from "./urlscanResult";
 export * from "./virusTotalInfo";
 export * from "./virusTotalInfoCategories";
+export * from "./waybackCapture";
+export * from "./waybackInfo";

@@ -191,9 +191,21 @@ components:
           type: boolean
         virusTotalConfigured:
           type: boolean
+        urlscanConfigured:
+          type: boolean
+        abuseIpDbConfigured:
+          type: boolean
+        securityTrailsConfigured:
+          type: boolean
+        censysConfigured:
+          type: boolean
       required:
         - shodanConfigured
         - virusTotalConfigured
+        - urlscanConfigured
+        - abuseIpDbConfigured
+        - securityTrailsConfigured
+        - censysConfigured
     ScanRequest:
       type: object
       properties:
@@ -293,6 +305,147 @@ components:
         - malicious
         - undetected
         - reputation
+    RdapInfo:
+      type: object
+      properties:
+        registrar:
+          type: string
+        registrationDate:
+          type: string
+        expirationDate:
+          type: string
+        updatedDate:
+          type: string
+        status:
+          type: array
+          items:
+            type: string
+        nameservers:
+          type: array
+          items:
+            type: string
+        abuseContacts:
+          type: array
+          items:
+            type: string
+      required:
+        - status
+        - nameservers
+        - abuseContacts
+    WaybackCapture:
+      type: object
+      properties:
+        url:
+          type: string
+        timestamp:
+          type: string
+        statusCode:
+          type: string
+        mimeType:
+          type: string
+      required:
+        - url
+        - timestamp
+    WaybackInfo:
+      type: object
+      properties:
+        captures:
+          type: array
+          items:
+            $ref: "#/components/schemas/WaybackCapture"
+      required:
+        - captures
+    UrlscanResult:
+      type: object
+      properties:
+        url:
+          type: string
+        pageDomain:
+          type: string
+        ip:
+          type: string
+        country:
+          type: string
+        server:
+          type: string
+        scannedAt:
+          type: string
+        resultUrl:
+          type: string
+        screenshotUrl:
+          type: string
+      required:
+        - url
+    UrlscanInfo:
+      type: object
+      properties:
+        total:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/UrlscanResult"
+      required:
+        - total
+        - results
+    AbuseIpInfo:
+      type: object
+      properties:
+        ip:
+          type: string
+        abuseConfidenceScore:
+          type: integer
+        totalReports:
+          type: integer
+        countryCode:
+          type: string
+        isp:
+          type: string
+        domain:
+          type: string
+        lastReportedAt:
+          type: string
+      required:
+        - ip
+        - abuseConfidenceScore
+        - totalReports
+    SecurityTrailsInfo:
+      type: object
+      properties:
+        subdomains:
+          type: array
+          items:
+            type: string
+      required:
+        - subdomains
+    CensysHostInfo:
+      type: object
+      properties:
+        ip:
+          type: string
+        services:
+          type: array
+          items:
+            type: string
+        location:
+          type: string
+        autonomousSystem:
+          type: string
+      required:
+        - ip
+        - services
+    CensysInfo:
+      type: object
+      properties:
+        total:
+          type: integer
+        hosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/CensysHostInfo"
+      required:
+        - total
+        - hosts
     ScanResult:
       type: object
       properties:
@@ -306,6 +459,39 @@ components:
             $ref: "#/components/schemas/SubdomainEntry"
         dns:
           $ref: "#/components/schemas/DnsRecords"
+        rdap:
+          nullable: true
+          oneOf:
+            - $ref: "#/components/schemas/RdapInfo"
+        wayback:
+          nullable: true
+          oneOf:
+            - $ref: "#/components/schemas/WaybackInfo"
+        urlscan:
+          nullable: true
+          oneOf:
+            - $ref: "#/components/schemas/UrlscanInfo"
+        urlscanConfigured:
+          type: boolean
+        abuseIpDb:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/AbuseIpInfo"
+        abuseIpDbConfigured:
+          type: boolean
+        securityTrails:
+          nullable: true
+          oneOf:
+            - $ref: "#/components/schemas/SecurityTrailsInfo"
+        securityTrailsConfigured:
+          type: boolean
+        censys:
+          nullable: true
+          oneOf:
+            - $ref: "#/components/schemas/CensysInfo"
+        censysConfigured:
+          type: boolean
         shodan:
           type: array
           nullable: true

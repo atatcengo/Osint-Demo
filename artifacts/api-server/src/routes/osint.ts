@@ -4,13 +4,126 @@ import { RunOsintScanBody, GenerateOsintReportBody } from "@workspace/api-zod";
 
 const router = Router();
 
+type DnsRecords = {
+  A: string[];
+  MX: string[];
+  TXT: string[];
+  NS: string[];
+};
+
+type ShodanHostInfo = {
+  ip: string;
+  ports: number[];
+  hostnames: string[];
+  org: string;
+  isp: string;
+  country: string;
+  tags: string[];
+  vulns: string[];
+};
+
+type RdapInfo = {
+  registrar?: string;
+  registrationDate?: string;
+  expirationDate?: string;
+  updatedDate?: string;
+  status: string[];
+  nameservers: string[];
+  abuseContacts: string[];
+};
+
+type WaybackCapture = {
+  url: string;
+  timestamp: string;
+  statusCode?: string;
+  mimeType?: string;
+};
+
+type WaybackInfo = {
+  captures: WaybackCapture[];
+};
+
+type UrlscanResult = {
+  url: string;
+  pageDomain?: string;
+  ip?: string;
+  country?: string;
+  server?: string;
+  scannedAt?: string;
+  resultUrl?: string;
+  screenshotUrl?: string;
+};
+
+type UrlscanInfo = {
+  total: number;
+  results: UrlscanResult[];
+};
+
+type AbuseIpInfo = {
+  ip: string;
+  abuseConfidenceScore: number;
+  totalReports: number;
+  countryCode?: string;
+  isp?: string;
+  domain?: string;
+  lastReportedAt?: string;
+};
+
+type SecurityTrailsInfo = {
+  subdomains: string[];
+};
+
+type CensysHostInfo = {
+  ip: string;
+  services: string[];
+  location?: string;
+  autonomousSystem?: string;
+};
+
+type CensysInfo = {
+  total: number;
+  hosts: CensysHostInfo[];
+};
+
+type VirusTotalInfo = {
+  harmless: number;
+  suspicious: number;
+  malicious: number;
+  undetected: number;
+  reputation: number;
+  categories?: Record<string, string>;
+};
+
+type ScanResultForReport = {
+  domain: string;
+  timestamp: string;
+  subdomains: { name: string }[];
+  dns: DnsRecords;
+  rdap?: RdapInfo | null;
+  wayback?: WaybackInfo | null;
+  urlscan?: UrlscanInfo | null;
+  urlscanConfigured?: boolean;
+  abuseIpDb?: AbuseIpInfo[] | null;
+  abuseIpDbConfigured?: boolean;
+  securityTrails?: SecurityTrailsInfo | null;
+  securityTrailsConfigured?: boolean;
+  censys?: CensysInfo | null;
+  censysConfigured?: boolean;
+  shodan?: ShodanHostInfo[] | null;
+  shodanConfigured: boolean;
+  virusTotal?: VirusTotalInfo | null;
+  virusTotalConfigured: boolean;
+  errors?: Record<string, string>;
+};
+
 // Validate domain: allow only domain names like example.com or sub.example.com
 // Reject URLs with protocol, paths, or suspicious characters
 function validate_domain(domain: string): boolean {
   if (!domain || typeof domain !== "string") return false;
   // Reject if it contains protocol, path, or suspicious chars
   if (/https?:\/\//i.test(domain)) return false;
-  if (domain.includes("/") || domain.includes("?") || domain.includes("#")) return false;
+  if (domain.includes("/") || domain.includes("?") || domain.includes("#"))
+    return false;
   // Must match valid domain pattern (supports multi-level like biga.bel.tr)
   const domainRegex =
     /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
@@ -19,7 +132,7 @@ function validate_domain(domain: string): boolean {
 
 // Query crt.sh for subdomains via certificate transparency logs
 async function get_crtsh_subdomains(
-  domain: string
+  domain: string,
 ): Promise<{ name: string }[]> {
   const url = `https://crt.sh/?q=%25.${encodeURIComponent(domain)}&output=json`;
   const resp = await fetch(url, {
@@ -55,7 +168,12 @@ async function get_dns_records(domain: string): Promise<{
   TXT: string[];
   NS: string[];
 }> {
-  const results = { A: [] as string[], MX: [] as string[], TXT: [] as string[], NS: [] as string[] };
+  const results = {
+    A: [] as string[],
+    MX: [] as string[],
+    TXT: [] as string[],
+    NS: [] as string[],
+  };
 
   // Resolve A records
   try {
@@ -92,10 +210,229 @@ async function get_dns_records(domain: string): Promise<{
   return results;
 }
 
+function get_vcard_values(vcardArray: unknown, key: string): string[] {
+  if (!Array.isArray(vcardArray) || !Array.isArray(vcardArray[1])) return [];
+
+  return vcardArray[1]
+    .filter((entry: unknown): entry is unknown[] => Array.isArray(entry))
+    .filter((entry) => entry[0] === key && typeof entry[3] === "string")
+    .map((entry) => String(entry[3]));
+}
+
+function get_rdap_event_date(
+  events: Array<{ eventAction?: string; eventDate?: string }> | undefined,
+  actions: string[],
+): string | undefined {
+  return events?.find(
+    (event) =>
+      event.eventAction && actions.includes(event.eventAction.toLowerCase()),
+  )?.eventDate;
+}
+
+async function get_rdap_info(domain: string): Promise<RdapInfo> {
+  const resp = await fetch(
+    `https://rdap.org/domain/${encodeURIComponent(domain)}`,
+    {
+      headers: { "User-Agent": "OSINT-Demo/1.0 (educational)" },
+      signal: AbortSignal.timeout(10000),
+    },
+  );
+
+  if (resp.status === 404) {
+    return { status: [], nameservers: [], abuseContacts: [] };
+  }
+
+  if (!resp.ok) {
+    throw new Error(`RDAP returned ${resp.status}`);
+  }
+
+  const data = (await resp.json()) as {
+    status?: string[];
+    events?: Array<{ eventAction?: string; eventDate?: string }>;
+    nameservers?: Array<{ ldhName?: string; unicodeName?: string }>;
+    entities?: Array<{
+      roles?: string[];
+      vcardArray?: unknown;
+      entities?: Array<{ roles?: string[]; vcardArray?: unknown }>;
+    }>;
+  };
+
+  const registrarEntity = data.entities?.find((entity) =>
+    entity.roles?.includes("registrar"),
+  );
+  const registrar = get_vcard_values(registrarEntity?.vcardArray, "fn")[0];
+
+  const abuseContacts = new Set<string>();
+  for (const entity of data.entities ?? []) {
+    const nested = [entity, ...(entity.entities ?? [])];
+    for (const candidate of nested) {
+      if (!candidate.roles?.includes("abuse")) continue;
+      for (const email of get_vcard_values(candidate.vcardArray, "email")) {
+        abuseContacts.add(email);
+      }
+    }
+  }
+
+  return {
+    registrar,
+    registrationDate: get_rdap_event_date(data.events, ["registration"]),
+    expirationDate: get_rdap_event_date(data.events, ["expiration"]),
+    updatedDate: get_rdap_event_date(data.events, [
+      "last changed",
+      "last update of rdap database",
+    ]),
+    status: data.status ?? [],
+    nameservers:
+      data.nameservers
+        ?.map((ns) => ns.ldhName ?? ns.unicodeName)
+        .filter((name): name is string => Boolean(name)) ?? [],
+    abuseContacts: [...abuseContacts],
+  };
+}
+
+function format_wayback_timestamp(timestamp: string): string {
+  if (!/^\d{14}$/.test(timestamp)) return timestamp;
+  return `${timestamp.slice(0, 4)}-${timestamp.slice(4, 6)}-${timestamp.slice(6, 8)}T${timestamp.slice(8, 10)}:${timestamp.slice(10, 12)}:${timestamp.slice(12, 14)}Z`;
+}
+
+async function get_wayback_info(domain: string): Promise<WaybackInfo> {
+  const params = new URLSearchParams({
+    url: `${domain}/*`,
+    output: "json",
+    fl: "timestamp,original,statuscode,mimetype",
+    filter: "statuscode:200",
+    collapse: "urlkey",
+    limit: "10",
+  });
+  try {
+    const resp = await fetch(`https://web.archive.org/cdx?${params}`, {
+      headers: { "User-Agent": "OSINT-Demo/1.0 (educational)" },
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!resp.ok) {
+      throw new Error(`Wayback CDX returned ${resp.status}`);
+    }
+
+    const rows = (await resp.json()) as unknown[][];
+    const captures = rows.slice(1).flatMap((row): WaybackCapture[] => {
+      const [timestamp, url, statusCode, mimeType] = row;
+      if (typeof timestamp !== "string" || typeof url !== "string") return [];
+
+      return [
+        {
+          url,
+          timestamp: format_wayback_timestamp(timestamp),
+          statusCode: typeof statusCode === "string" ? statusCode : undefined,
+          mimeType: typeof mimeType === "string" ? mimeType : undefined,
+        },
+      ];
+    });
+
+    return { captures };
+  } catch {
+    const availableParams = new URLSearchParams({ url: domain });
+    const resp = await fetch(
+      `https://archive.org/wayback/available?${availableParams}`,
+      {
+        headers: { "User-Agent": "OSINT-Demo/1.0 (educational)" },
+        signal: AbortSignal.timeout(8000),
+      },
+    );
+
+    if (!resp.ok) {
+      throw new Error(`Wayback availability returned ${resp.status}`);
+    }
+
+    const data = (await resp.json()) as {
+      archived_snapshots?: {
+        closest?: {
+          available?: boolean;
+          url?: string;
+          timestamp?: string;
+          status?: string;
+        };
+      };
+    };
+    const closest = data.archived_snapshots?.closest;
+    if (!closest?.available || !closest.url || !closest.timestamp) {
+      return { captures: [] };
+    }
+
+    return {
+      captures: [
+        {
+          url: closest.url,
+          timestamp: format_wayback_timestamp(closest.timestamp),
+          statusCode: closest.status,
+        },
+      ],
+    };
+  }
+}
+
+async function get_urlscan_info(
+  domain: string,
+  apiKey?: string,
+): Promise<UrlscanInfo> {
+  const params = new URLSearchParams({
+    q: `page.domain:${domain}`,
+    size: "5",
+  });
+  const headers: Record<string, string> = {
+    "User-Agent": "OSINT-Demo/1.0 (educational)",
+  };
+  if (apiKey) headers["API-Key"] = apiKey;
+
+  const resp = await fetch(`https://urlscan.io/api/v1/search/?${params}`, {
+    headers,
+    signal: AbortSignal.timeout(12000),
+  });
+
+  if (!resp.ok) {
+    throw new Error(`urlscan.io returned ${resp.status}`);
+  }
+
+  const data = (await resp.json()) as {
+    total?: number | { value?: number };
+    results?: Array<{
+      page?: {
+        url?: string;
+        domain?: string;
+        ip?: string;
+        country?: string;
+        server?: string;
+      };
+      task?: { time?: string; url?: string };
+      result?: string;
+      screenshot?: string;
+    }>;
+  };
+  const total =
+    typeof data.total === "number" ? data.total : (data.total?.value ?? 0);
+
+  return {
+    total,
+    results:
+      data.results
+        ?.map((item) => ({
+          url: item.page?.url ?? item.task?.url ?? "",
+          pageDomain: item.page?.domain,
+          ip: item.page?.ip,
+          country: item.page?.country,
+          server: item.page?.server,
+          scannedAt: item.task?.time,
+          resultUrl: item.result,
+          screenshotUrl: item.screenshot,
+        }))
+        .filter((item) => item.url) ?? [],
+  };
+}
+
 // Query Shodan for info about an IP address
 async function get_shodan_host(
   ip: string,
-  apiKey: string
+  apiKey: string,
 ): Promise<{
   ip: string;
   ports: number[];
@@ -149,7 +486,7 @@ async function get_shodan_host(
 // Query Shodan for all resolved IPs
 async function get_shodan_info(
   ips: string[],
-  apiKey: string
+  apiKey: string,
 ): Promise<
   {
     ip: string;
@@ -177,7 +514,7 @@ async function get_shodan_info(
 // Query VirusTotal domain report
 async function get_virustotal_info(
   domain: string,
-  apiKey: string
+  apiKey: string,
 ): Promise<{
   harmless: number;
   suspicious: number;
@@ -223,39 +560,166 @@ async function get_virustotal_info(
   };
 }
 
+async function get_abuseipdb_info(
+  ips: string[],
+  apiKey: string,
+): Promise<AbuseIpInfo[]> {
+  const uniqueIps = [...new Set(ips)].slice(0, 5);
+  const results: AbuseIpInfo[] = [];
+
+  for (const ip of uniqueIps) {
+    const params = new URLSearchParams({
+      ipAddress: ip,
+      maxAgeInDays: "90",
+    });
+    const resp = await fetch(
+      `https://api.abuseipdb.com/api/v2/check?${params}`,
+      {
+        headers: {
+          Accept: "application/json",
+          Key: apiKey,
+          "User-Agent": "OSINT-Demo/1.0 (educational)",
+        },
+        signal: AbortSignal.timeout(10000),
+      },
+    );
+
+    if (!resp.ok) {
+      throw new Error(`AbuseIPDB API error: ${resp.status}`);
+    }
+
+    const payload = (await resp.json()) as {
+      data?: {
+        ipAddress?: string;
+        abuseConfidenceScore?: number;
+        totalReports?: number;
+        countryCode?: string;
+        isp?: string;
+        domain?: string;
+        lastReportedAt?: string;
+      };
+    };
+    const data = payload.data;
+    if (!data?.ipAddress) continue;
+
+    results.push({
+      ip: data.ipAddress,
+      abuseConfidenceScore: data.abuseConfidenceScore ?? 0,
+      totalReports: data.totalReports ?? 0,
+      countryCode: data.countryCode,
+      isp: data.isp,
+      domain: data.domain,
+      lastReportedAt: data.lastReportedAt,
+    });
+  }
+
+  return results;
+}
+
+async function get_securitytrails_info(
+  domain: string,
+  apiKey: string,
+): Promise<SecurityTrailsInfo> {
+  const resp = await fetch(
+    `https://api.securitytrails.com/v1/domain/${encodeURIComponent(domain)}/subdomains?children_only=false`,
+    {
+      headers: {
+        APIKEY: apiKey,
+        "User-Agent": "OSINT-Demo/1.0 (educational)",
+      },
+      signal: AbortSignal.timeout(12000),
+    },
+  );
+
+  if (!resp.ok) {
+    throw new Error(`SecurityTrails API error: ${resp.status}`);
+  }
+
+  const data = (await resp.json()) as { subdomains?: string[] };
+  return {
+    subdomains:
+      data.subdomains?.map((sub) => `${sub}.${domain}`).slice(0, 100) ?? [],
+  };
+}
+
+async function get_censys_info(
+  domain: string,
+  apiId: string,
+  apiSecret: string,
+): Promise<CensysInfo> {
+  const params = new URLSearchParams({
+    q: domain,
+    per_page: "5",
+    virtual_hosts: "EXCLUDE",
+  });
+  const credentials = Buffer.from(`${apiId}:${apiSecret}`).toString("base64");
+  const resp = await fetch(
+    `https://search.censys.io/api/v2/hosts/search?${params}`,
+    {
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        Accept: "application/json",
+        "User-Agent": "OSINT-Demo/1.0 (educational)",
+      },
+      signal: AbortSignal.timeout(12000),
+    },
+  );
+
+  if (!resp.ok) {
+    throw new Error(`Censys API error: ${resp.status}`);
+  }
+
+  const data = (await resp.json()) as {
+    result?: {
+      total?: number;
+      hits?: Array<{
+        ip?: string;
+        location?: { country?: string; city?: string };
+        autonomous_system?: { name?: string; asn?: number };
+        services?: Array<{
+          port?: number;
+          service_name?: string;
+          transport_protocol?: string;
+        }>;
+      }>;
+    };
+  };
+
+  return {
+    total: data.result?.total ?? 0,
+    hosts:
+      data.result?.hits?.flatMap((hit): CensysHostInfo[] => {
+        if (!hit.ip) return [];
+        return [
+          {
+            ip: hit.ip,
+            services:
+              hit.services?.map((service) =>
+                [service.service_name, service.port, service.transport_protocol]
+                  .filter(Boolean)
+                  .join("/"),
+              ) ?? [],
+            location:
+              [hit.location?.city, hit.location?.country]
+                .filter(Boolean)
+                .join(", ") || undefined,
+            autonomousSystem: hit.autonomous_system
+              ? `${hit.autonomous_system.name ?? "AS"} ${hit.autonomous_system.asn ?? ""}`.trim()
+              : undefined,
+          },
+        ];
+      }) ?? [],
+  };
+}
+
 // Generate a Markdown report from scan results
-function generate_markdown_report(result: {
-  domain: string;
-  timestamp: string;
-  subdomains: { name: string }[];
-  dns: { A: string[]; MX: string[]; TXT: string[]; NS: string[] };
-  shodan: {
-    ip: string;
-    ports: number[];
-    hostnames: string[];
-    org: string;
-    isp: string;
-    country: string;
-    tags: string[];
-    vulns: string[];
-  }[] | null;
-  shodanConfigured: boolean;
-  virusTotal: {
-    harmless: number;
-    suspicious: number;
-    malicious: number;
-    undetected: number;
-    reputation: number;
-  } | null;
-  virusTotalConfigured: boolean;
-  errors?: Record<string, string>;
-}): string {
+function generate_markdown_report(result: ScanResultForReport): string {
   const lines: string[] = [];
   lines.push(`# Passive OSINT Report`);
   lines.push(`\n**Target Domain:** \`${result.domain}\``);
   lines.push(`**Date/Time:** ${result.timestamp}`);
   lines.push(
-    `\n> **Ethical Note:** This report was generated using passive OSINT sources only. No active scanning or exploitation was performed.`
+    `\n> **Ethical Note:** This report was generated using passive OSINT sources only. No active scanning or exploitation was performed.`,
   );
 
   lines.push(`\n## Subdomains (via crt.sh)`);
@@ -308,6 +772,96 @@ function generate_markdown_report(result: {
     for (const r of result.dns.NS) lines.push(`| \`${r}\` |`);
   }
 
+  lines.push(`\n## RDAP Registration`);
+  if (!result.rdap) {
+    lines.push(`No RDAP data available.`);
+  } else {
+    if (result.rdap.registrar)
+      lines.push(`- **Registrar:** ${result.rdap.registrar}`);
+    if (result.rdap.registrationDate)
+      lines.push(`- **Registered:** ${result.rdap.registrationDate}`);
+    if (result.rdap.expirationDate)
+      lines.push(`- **Expires:** ${result.rdap.expirationDate}`);
+    if (result.rdap.updatedDate)
+      lines.push(`- **Updated:** ${result.rdap.updatedDate}`);
+    if (result.rdap.nameservers.length > 0) {
+      lines.push(`- **Nameservers:** ${result.rdap.nameservers.join(", ")}`);
+    }
+    if (result.rdap.abuseContacts.length > 0) {
+      lines.push(
+        `- **Abuse contacts:** ${result.rdap.abuseContacts.join(", ")}`,
+      );
+    }
+  }
+
+  lines.push(`\n## Wayback Machine`);
+  if (!result.wayback || result.wayback.captures.length === 0) {
+    lines.push(`No recent archived captures returned.`);
+  } else {
+    lines.push(`| Timestamp | URL |`);
+    lines.push(`|-----------|-----|`);
+    for (const capture of result.wayback.captures) {
+      lines.push(`| ${capture.timestamp} | ${capture.url} |`);
+    }
+  }
+
+  lines.push(`\n## urlscan.io Search`);
+  if (!result.urlscan || result.urlscan.results.length === 0) {
+    lines.push(`No urlscan.io search results returned.`);
+  } else {
+    lines.push(
+      `Found ${result.urlscan.total} matching urlscan.io results. Showing latest ${result.urlscan.results.length}.`,
+    );
+    for (const item of result.urlscan.results) {
+      lines.push(`- ${item.url}${item.ip ? ` (${item.ip})` : ""}`);
+    }
+  }
+
+  lines.push(`\n## AbuseIPDB`);
+  if (!result.abuseIpDbConfigured) {
+    lines.push(`AbuseIPDB API key not configured.`);
+  } else if (!result.abuseIpDb || result.abuseIpDb.length === 0) {
+    lines.push(`No AbuseIPDB data returned for resolved IPs.`);
+  } else {
+    lines.push(`| IP | Abuse confidence | Reports |`);
+    lines.push(`|----|------------------|---------|`);
+    for (const ip of result.abuseIpDb) {
+      lines.push(
+        `| ${ip.ip} | ${ip.abuseConfidenceScore} | ${ip.totalReports} |`,
+      );
+    }
+  }
+
+  lines.push(`\n## SecurityTrails`);
+  if (!result.securityTrailsConfigured) {
+    lines.push(`SecurityTrails API key not configured.`);
+  } else if (
+    !result.securityTrails ||
+    result.securityTrails.subdomains.length === 0
+  ) {
+    lines.push(`No SecurityTrails subdomains returned.`);
+  } else {
+    lines.push(
+      `Returned ${result.securityTrails.subdomains.length} subdomains.`,
+    );
+  }
+
+  lines.push(`\n## Censys`);
+  if (!result.censysConfigured) {
+    lines.push(`Censys API credentials not configured.`);
+  } else if (!result.censys || result.censys.hosts.length === 0) {
+    lines.push(`No Censys hosts returned.`);
+  } else {
+    lines.push(
+      `Found ${result.censys.total} matching Censys hosts. Showing ${result.censys.hosts.length}.`,
+    );
+    for (const host of result.censys.hosts) {
+      lines.push(
+        `- ${host.ip}: ${host.services.join(", ") || "No services listed"}`,
+      );
+    }
+  }
+
   lines.push(`\n## Shodan Intelligence`);
   if (!result.shodanConfigured) {
     lines.push(`Shodan API key not configured.`);
@@ -328,7 +882,7 @@ function generate_markdown_report(result: {
       }
       if (host.vulns.length > 0) {
         lines.push(
-          `- **CVEs (reported by Shodan, not confirmed vulnerabilities):** ${host.vulns.join(", ")}`
+          `- **CVEs (reported by Shodan, not confirmed vulnerabilities):** ${host.vulns.join(", ")}`,
         );
       }
     }
@@ -352,7 +906,7 @@ function generate_markdown_report(result: {
 
   lines.push(`\n---`);
   lines.push(
-    `*This report was generated using passive OSINT sources only. No active scanning, brute forcing, or exploitation was performed. For educational use only.*`
+    `*This report was generated using passive OSINT sources only. No active scanning, brute forcing, or exploitation was performed. For educational use only.*`,
   );
 
   return lines.join("\n");
@@ -363,6 +917,12 @@ router.get("/osint/config", (req, res) => {
   res.json({
     shodanConfigured: !!process.env["SHODAN_API_KEY"],
     virusTotalConfigured: !!process.env["VIRUSTOTAL_API_KEY"],
+    urlscanConfigured: !!process.env["URLSCAN_API_KEY"],
+    abuseIpDbConfigured: !!process.env["ABUSEIPDB_API_KEY"],
+    securityTrailsConfigured: !!process.env["SECURITYTRAILS_API_KEY"],
+    censysConfigured: !!(
+      process.env["CENSYS_API_ID"] && process.env["CENSYS_API_SECRET"]
+    ),
   });
 });
 
@@ -387,38 +947,110 @@ router.post("/osint/scan", async (req, res) => {
   const timestamp = new Date().toISOString();
   const errors: Record<string, string> = {};
 
-  // Run subdomains and DNS in parallel
-  const [subdomainsResult, dnsResult] = await Promise.allSettled([
+  // Run free passive sources in parallel.
+  const [
+    subdomainsResult,
+    dnsResult,
+    rdapResult,
+    waybackResult,
+    urlscanResult,
+  ] = await Promise.allSettled([
     get_crtsh_subdomains(domain),
     get_dns_records(domain),
+    get_rdap_info(domain),
+    get_wayback_info(domain),
+    get_urlscan_info(domain, process.env["URLSCAN_API_KEY"]),
   ]);
 
   const subdomains =
     subdomainsResult.status === "fulfilled"
       ? subdomainsResult.value
-      : (errors["subdomains"] = subdomainsResult.reason?.message ?? "Failed", []);
+      : ((errors["subdomains"] = subdomainsResult.reason?.message ?? "Failed"),
+        []);
 
   const dns =
     dnsResult.status === "fulfilled"
       ? dnsResult.value
-      : (errors["dns"] = dnsResult.reason?.message ?? "Failed",
+      : ((errors["dns"] = dnsResult.reason?.message ?? "Failed"),
         { A: [], MX: [], TXT: [], NS: [] });
 
   const resolvedIPs = dns.A;
 
+  const rdap =
+    rdapResult.status === "fulfilled"
+      ? rdapResult.value
+      : ((errors["rdap"] = rdapResult.reason?.message ?? "Failed"), null);
+
+  const wayback =
+    waybackResult.status === "fulfilled"
+      ? waybackResult.value
+      : ((errors["wayback"] = waybackResult.reason?.message ?? "Failed"), null);
+
+  const urlscanConfigured = !!process.env["URLSCAN_API_KEY"];
+  const urlscan =
+    urlscanResult.status === "fulfilled"
+      ? urlscanResult.value
+      : ((errors["urlscan"] = urlscanResult.reason?.message ?? "Failed"), null);
+
+  const abuseIpDbKey = process.env["ABUSEIPDB_API_KEY"];
+  const abuseIpDbConfigured = !!abuseIpDbKey;
+  let abuseIpDb: AbuseIpInfo[] | null = null;
+
+  if (abuseIpDbConfigured && abuseIpDbKey && resolvedIPs.length > 0) {
+    try {
+      abuseIpDb = await get_abuseipdb_info(resolvedIPs, abuseIpDbKey);
+    } catch (err) {
+      errors["abuseIpDb"] =
+        err instanceof Error ? err.message : "AbuseIPDB query failed";
+    }
+  }
+
+  const securityTrailsKey = process.env["SECURITYTRAILS_API_KEY"];
+  const securityTrailsConfigured = !!securityTrailsKey;
+  let securityTrails: SecurityTrailsInfo | null = null;
+
+  if (securityTrailsConfigured && securityTrailsKey) {
+    try {
+      securityTrails = await get_securitytrails_info(domain, securityTrailsKey);
+    } catch (err) {
+      errors["securityTrails"] =
+        err instanceof Error ? err.message : "SecurityTrails query failed";
+    }
+  }
+
+  const censysApiId = process.env["CENSYS_API_ID"];
+  const censysApiSecret = process.env["CENSYS_API_SECRET"];
+  const censysConfigured = !!(censysApiId && censysApiSecret);
+  let censys: CensysInfo | null = null;
+
+  if (censysConfigured && censysApiId && censysApiSecret) {
+    try {
+      censys = await get_censys_info(domain, censysApiId, censysApiSecret);
+    } catch (err) {
+      errors["censys"] =
+        err instanceof Error ? err.message : "Censys query failed";
+    }
+  }
+
   // Shodan integration
   const shodanKey = process.env["SHODAN_API_KEY"];
   const shodanConfigured = !!shodanKey;
-  let shodan: typeof subdomains extends never ? never : (typeof subdomains extends { name: string }[] ? {
-    ip: string;
-    ports: number[];
-    hostnames: string[];
-    org: string;
-    isp: string;
-    country: string;
-    tags: string[];
-    vulns: string[];
-  }[] | null : never) = null;
+  let shodan: typeof subdomains extends never
+    ? never
+    : typeof subdomains extends { name: string }[]
+      ?
+          | {
+              ip: string;
+              ports: number[];
+              hostnames: string[];
+              org: string;
+              isp: string;
+              country: string;
+              tags: string[];
+              vulns: string[];
+            }[]
+          | null
+      : never = null;
 
   if (shodanConfigured && resolvedIPs.length > 0 && shodanKey) {
     try {
@@ -455,6 +1087,16 @@ router.post("/osint/scan", async (req, res) => {
     timestamp,
     subdomains,
     dns,
+    rdap,
+    wayback,
+    urlscan,
+    urlscanConfigured,
+    abuseIpDb,
+    abuseIpDbConfigured,
+    securityTrails,
+    securityTrailsConfigured,
+    censys,
+    censysConfigured,
     shodan,
     shodanConfigured,
     virusTotal,
@@ -471,7 +1113,9 @@ router.post("/osint/report", (req, res) => {
     return;
   }
 
-  const scanResult = parseResult.data as Parameters<typeof generate_markdown_report>[0];
+  const scanResult = parseResult.data as Parameters<
+    typeof generate_markdown_report
+  >[0];
   const content = generate_markdown_report(scanResult);
   const filename = `osint-report-${scanResult.domain}-${new Date().toISOString().slice(0, 10)}.md`;
 
