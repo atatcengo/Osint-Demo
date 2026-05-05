@@ -9,6 +9,7 @@ import type { AbuseIpInfo } from "./abuseIpInfo";
 import type { CisaKevInfo } from "./cisaKevInfo";
 import type { DnsRecords } from "./dnsRecords";
 import type { DnsSecurityInfo } from "./dnsSecurityInfo";
+import type { RiskSummaryInfo } from "./riskSummaryInfo";
 import type { ScanResultErrors } from "./scanResultErrors";
 import type { ShodanHostInfo } from "./shodanHostInfo";
 import type { SubdomainEntry } from "./subdomainEntry";
@@ -32,5 +33,6 @@ export interface ScanResult {
   cisaKev?: CisaKevInfo | null;
   virusTotal?: VirusTotalInfo | null;
   virusTotalConfigured: boolean;
+  riskSummary: RiskSummaryInfo;
   errors?: ScanResultErrors;
 }

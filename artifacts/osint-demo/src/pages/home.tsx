@@ -142,6 +142,22 @@ export default function Home() {
     </Badge>
   );
 
+  const getRiskLevelClass = (level: string) => {
+    if (level === "critical") return "text-destructive";
+    if (level === "high") return "text-orange-400";
+    if (level === "medium") return "text-amber-400";
+    return "text-emerald-400";
+  };
+
+  const getFindingSeverityClass = (severity: string) => {
+    if (severity === "critical" || severity === "high") {
+      return "border-destructive/30 text-destructive";
+    }
+    if (severity === "medium") return "border-amber-500/30 text-amber-400";
+    if (severity === "low") return "border-primary/30 text-primary";
+    return "border-muted-foreground/30 text-muted-foreground";
+  };
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setScanResult(null);
     try {
@@ -395,6 +411,66 @@ export default function Home() {
                 {generateReport.isPending ? "GENERATING..." : "DOWNLOAD_REPORT"}
               </Button>
             </div>
+
+            {scanResult.riskSummary && (
+              <Card className="border-primary/20">
+                <CardHeader className="pb-3 border-b border-border/50 bg-secondary/20">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Activity className="w-5 h-5 text-primary" />
+                    Risk Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-[180px_1fr] gap-6">
+                    <div className="flex flex-col justify-center rounded border border-border/50 bg-secondary/10 p-4">
+                      <div
+                        className={`text-5xl font-bold leading-none ${getRiskLevelClass(
+                          scanResult.riskSummary.level,
+                        )}`}
+                      >
+                        {scanResult.riskSummary.score}
+                      </div>
+                      <div className="mt-2 text-sm text-muted-foreground">
+                        /100
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={`mt-4 w-fit uppercase ${getFindingSeverityClass(
+                          scanResult.riskSummary.level,
+                        )}`}
+                      >
+                        {scanResult.riskSummary.level}
+                      </Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {scanResult.riskSummary.findings.map((finding) => (
+                        <div
+                          key={`${finding.severity}-${finding.label}`}
+                          className="rounded border border-border/50 bg-secondary/10 p-3"
+                        >
+                          <div className="flex flex-col md:flex-row md:items-center gap-2 justify-between">
+                            <div className="font-bold text-foreground">
+                              {finding.label}
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={`w-fit uppercase ${getFindingSeverityClass(
+                                finding.severity,
+                              )}`}
+                            >
+                              {finding.severity}
+                            </Badge>
+                          </div>
+                          <div className="mt-1 text-sm text-muted-foreground">
+                            {finding.detail}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Errors Section */}
             {scanResult.errors && Object.keys(scanResult.errors).length > 0 && (

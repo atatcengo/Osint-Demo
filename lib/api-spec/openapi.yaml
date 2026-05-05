@@ -338,6 +338,45 @@ components:
             $ref: "#/components/schemas/CisaKevMatch"
       required:
         - matched
+    RiskFinding:
+      type: object
+      properties:
+        severity:
+          type: string
+          enum:
+            - info
+            - low
+            - medium
+            - high
+            - critical
+        label:
+          type: string
+        detail:
+          type: string
+      required:
+        - severity
+        - label
+        - detail
+    RiskSummaryInfo:
+      type: object
+      properties:
+        score:
+          type: integer
+        level:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+            - critical
+        findings:
+          type: array
+          items:
+            $ref: "#/components/schemas/RiskFinding"
+      required:
+        - score
+        - level
+        - findings
     VirusTotalInfo:
       type: object
       properties:
@@ -493,6 +532,8 @@ components:
             - $ref: "#/components/schemas/VirusTotalInfo"
         virusTotalConfigured:
           type: boolean
+        riskSummary:
+          $ref: "#/components/schemas/RiskSummaryInfo"
         errors:
           type: object
           additionalProperties:
@@ -504,6 +545,7 @@ components:
         - dns
         - shodanConfigured
         - virusTotalConfigured
+        - riskSummary
     ScanHistoryEntry:
       type: object
       properties:

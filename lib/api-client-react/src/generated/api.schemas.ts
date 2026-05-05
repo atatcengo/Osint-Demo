@@ -71,6 +71,39 @@ export interface CisaKevInfo {
   matched: CisaKevMatch[];
 }
 
+export type RiskFindingSeverity =
+  (typeof RiskFindingSeverity)[keyof typeof RiskFindingSeverity];
+
+export const RiskFindingSeverity = {
+  info: "info",
+  low: "low",
+  medium: "medium",
+  high: "high",
+  critical: "critical",
+} as const;
+
+export interface RiskFinding {
+  severity: RiskFindingSeverity;
+  label: string;
+  detail: string;
+}
+
+export type RiskSummaryInfoLevel =
+  (typeof RiskSummaryInfoLevel)[keyof typeof RiskSummaryInfoLevel];
+
+export const RiskSummaryInfoLevel = {
+  low: "low",
+  medium: "medium",
+  high: "high",
+  critical: "critical",
+} as const;
+
+export interface RiskSummaryInfo {
+  score: number;
+  level: RiskSummaryInfoLevel;
+  findings: RiskFinding[];
+}
+
 export type VirusTotalInfoCategories = { [key: string]: string };
 
 export interface VirusTotalInfo {
@@ -137,6 +170,7 @@ export interface ScanResult {
   cisaKev?: CisaKevInfo | null;
   virusTotal?: VirusTotalInfo | null;
   virusTotalConfigured: boolean;
+  riskSummary: RiskSummaryInfo;
   errors?: ScanResultErrors;
 }
 

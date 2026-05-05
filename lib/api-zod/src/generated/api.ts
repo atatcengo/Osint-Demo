@@ -150,6 +150,17 @@ export const RunOsintScanResponse = zod.object({
     })
     .nullish(),
   virusTotalConfigured: zod.boolean(),
+  riskSummary: zod.object({
+    score: zod.number(),
+    level: zod.enum(["low", "medium", "high", "critical"]),
+    findings: zod.array(
+      zod.object({
+        severity: zod.enum(["info", "low", "medium", "high", "critical"]),
+        label: zod.string(),
+        detail: zod.string(),
+      }),
+    ),
+  }),
   errors: zod.record(zod.string(), zod.string()).optional(),
 });
 
@@ -271,6 +282,17 @@ export const GenerateOsintReportBody = zod.object({
     })
     .nullish(),
   virusTotalConfigured: zod.boolean(),
+  riskSummary: zod.object({
+    score: zod.number(),
+    level: zod.enum(["low", "medium", "high", "critical"]),
+    findings: zod.array(
+      zod.object({
+        severity: zod.enum(["info", "low", "medium", "high", "critical"]),
+        label: zod.string(),
+        detail: zod.string(),
+      }),
+    ),
+  }),
   errors: zod.record(zod.string(), zod.string()).optional(),
 });
 
@@ -403,6 +425,17 @@ export const ListScanHistoryResponseItem = zod.object({
       })
       .nullish(),
     virusTotalConfigured: zod.boolean(),
+    riskSummary: zod.object({
+      score: zod.number(),
+      level: zod.enum(["low", "medium", "high", "critical"]),
+      findings: zod.array(
+        zod.object({
+          severity: zod.enum(["info", "low", "medium", "high", "critical"]),
+          label: zod.string(),
+          detail: zod.string(),
+        }),
+      ),
+    }),
     errors: zod.record(zod.string(), zod.string()).optional(),
   }),
 });
@@ -526,6 +559,17 @@ export const SaveScanResultBody = zod.object({
     })
     .nullish(),
   virusTotalConfigured: zod.boolean(),
+  riskSummary: zod.object({
+    score: zod.number(),
+    level: zod.enum(["low", "medium", "high", "critical"]),
+    findings: zod.array(
+      zod.object({
+        severity: zod.enum(["info", "low", "medium", "high", "critical"]),
+        label: zod.string(),
+        detail: zod.string(),
+      }),
+    ),
+  }),
   errors: zod.record(zod.string(), zod.string()).optional(),
 });
 
@@ -657,6 +701,17 @@ export const GetScanHistoryEntryResponse = zod.object({
       })
       .nullish(),
     virusTotalConfigured: zod.boolean(),
+    riskSummary: zod.object({
+      score: zod.number(),
+      level: zod.enum(["low", "medium", "high", "critical"]),
+      findings: zod.array(
+        zod.object({
+          severity: zod.enum(["info", "low", "medium", "high", "critical"]),
+          label: zod.string(),
+          detail: zod.string(),
+        }),
+      ),
+    }),
     errors: zod.record(zod.string(), zod.string()).optional(),
   }),
 });

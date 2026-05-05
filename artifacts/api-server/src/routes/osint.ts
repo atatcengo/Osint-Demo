@@ -96,6 +96,18 @@ type CisaKevInfo = {
   matched: CisaKevMatch[];
 };
 
+type RiskFinding = {
+  severity: "info" | "low" | "medium" | "high" | "critical";
+  label: string;
+  detail: string;
+};
+
+type RiskSummaryInfo = {
+  score: number;
+  level: "low" | "medium" | "high" | "critical";
+  findings: RiskFinding[];
+};
+
 type ScanResultForReport = {
   domain: string;
   timestamp: string;
@@ -112,6 +124,7 @@ type ScanResultForReport = {
   cisaKev?: CisaKevInfo | null;
   virusTotal?: VirusTotalInfo | null;
   virusTotalConfigured: boolean;
+  riskSummary?: RiskSummaryInfo;
   errors?: Record<string, string>;
 };
 
@@ -819,6 +832,149 @@ async function get_cisa_kev_matches(cveIds: string[]): Promise<CisaKevInfo> {
   };
 }
 
+function get_risk_level(score: number): RiskSummaryInfo["level"] {
+  if (score >= 80) return "critical";
+  if (score >= 55) return "high";
+  if (score >= 25) return "medium";
+  return "low";
+}
+
+function compute_risk_summary(input: {
+  dnsSecurity?: DnsSecurityInfo | null;
+  abuseIpDb?: AbuseIpInfo[] | null;
+  shodan?: ShodanHostInfo[] | null;
+  cisaKev?: CisaKevInfo | null;
+  virusTotal?: VirusTotalInfo | null;
+}): RiskSummaryInfo {
+  let score = 0;
+  const findings: RiskFinding[] = [];
+
+  const addFinding = (
+    severity: RiskFinding["severity"],
+    label: string,
+    detail: string,
+    points: number,
+  ) => {
+    findings.push({ severity, label, detail });
+    score += points;
+  };
+
+  if ((input.virusTotal?.malicious ?? 0) > 0) {
+    addFinding(
+      "critical",
+      "VirusTotal malicious detections",
+      `${input.virusTotal?.malicious ?? 0} engine(s) marked the domain malicious.`,
+      35,
+    );
+  } else if ((input.virusTotal?.suspicious ?? 0) > 0) {
+    addFinding(
+      "medium",
+      "VirusTotal suspicious detections",
+      `${input.virusTotal?.suspicious ?? 0} engine(s) marked the domain suspicious.`,
+      15,
+    );
+  }
+
+  const maxAbuseScore = Math.max(
+    0,
+    ...(input.abuseIpDb ?? []).map((entry) => entry.abuseConfidenceScore),
+  );
+  if (maxAbuseScore >= 50) {
+    addFinding(
+      "high",
+      "AbuseIPDB reports",
+      `Highest resolved-IP abuse confidence score is ${maxAbuseScore}.`,
+      25,
+    );
+  } else if (maxAbuseScore >= 25) {
+    addFinding(
+      "medium",
+      "AbuseIPDB reports",
+      `Highest resolved-IP abuse confidence score is ${maxAbuseScore}.`,
+      12,
+    );
+  }
+
+  if ((input.cisaKev?.matched.length ?? 0) > 0) {
+    addFinding(
+      "critical",
+      "Known exploited CVEs",
+      `${input.cisaKev?.matched.length ?? 0} Shodan-reported CVE(s) are in the CISA KEV catalog.`,
+      35,
+    );
+  }
+
+  const shodanVulnCount = (input.shodan ?? []).flatMap(
+    (host) => host.vulns,
+  ).length;
+  if (shodanVulnCount > 0) {
+    addFinding(
+      "high",
+      "Shodan CVE signals",
+      `${shodanVulnCount} CVE signal(s) were reported by Shodan.`,
+      20,
+    );
+  }
+
+  const exposedPorts = new Set(
+    (input.shodan ?? []).flatMap((host) => host.ports),
+  );
+  const sensitivePorts = [21, 22, 23, 445, 3389, 5900].filter((port) =>
+    exposedPorts.has(port),
+  );
+  if (sensitivePorts.length > 0) {
+    addFinding(
+      "medium",
+      "Sensitive exposed services",
+      `Shodan reported sensitive port(s): ${sensitivePorts.join(", ")}.`,
+      12,
+    );
+  }
+
+  if (input.dnsSecurity) {
+    if (input.dnsSecurity.spf.length === 0) {
+      addFinding("medium", "Missing SPF", "No SPF TXT record was found.", 10);
+    }
+    if (!input.dnsSecurity.dmarc) {
+      addFinding(
+        "medium",
+        "Missing DMARC",
+        "No DMARC TXT record was found.",
+        12,
+      );
+    } else if (input.dnsSecurity.dmarcPolicy === "none") {
+      addFinding(
+        "low",
+        "DMARC monitoring mode",
+        "DMARC policy is p=none.",
+        6,
+      );
+    }
+    if (input.dnsSecurity.caa.length === 0) {
+      addFinding("low", "Missing CAA", "No CAA record was found.", 4);
+    }
+    if (!input.dnsSecurity.dnssec) {
+      addFinding("low", "Missing DNSSEC DS", "No DS record was found.", 4);
+    }
+  }
+
+  if (findings.length === 0) {
+    findings.push({
+      severity: "info",
+      label: "No elevated passive signals",
+      detail: "No high-signal passive risk indicators were found.",
+    });
+  }
+
+  const cappedScore = Math.min(score, 100);
+
+  return {
+    score: cappedScore,
+    level: get_risk_level(cappedScore),
+    findings,
+  };
+}
+
 // Generate a Markdown report from scan results
 function generate_markdown_report(result: ScanResultForReport): string {
   const lines: string[] = [];
@@ -828,6 +984,21 @@ function generate_markdown_report(result: ScanResultForReport): string {
   lines.push(
     `\n> **Ethical Note:** This report was generated using passive OSINT sources only. No active scanning or exploitation was performed.`,
   );
+
+  if (result.riskSummary) {
+    lines.push(`\n## Risk Summary`);
+    lines.push(`- **Score:** ${result.riskSummary.score}/100`);
+    lines.push(`- **Level:** ${result.riskSummary.level.toUpperCase()}`);
+    if (result.riskSummary.findings.length > 0) {
+      lines.push(`\n| Severity | Finding | Detail |`);
+      lines.push(`|----------|---------|--------|`);
+      for (const finding of result.riskSummary.findings) {
+        lines.push(
+          `| ${finding.severity} | ${finding.label} | ${finding.detail} |`,
+        );
+      }
+    }
+  }
 
   lines.push(`\n## Subdomains (passive sources)`);
   if (result.subdomains.length === 0) {
@@ -1182,6 +1353,14 @@ router.post("/osint/scan", async (req, res) => {
     }
   }
 
+  const riskSummary = compute_risk_summary({
+    dnsSecurity,
+    abuseIpDb,
+    shodan,
+    cisaKev,
+    virusTotal,
+  });
+
   res.json({
     domain,
     timestamp,
@@ -1198,6 +1377,7 @@ router.post("/osint/scan", async (req, res) => {
     cisaKev,
     virusTotal,
     virusTotalConfigured,
+    riskSummary,
     errors,
   });
 });
