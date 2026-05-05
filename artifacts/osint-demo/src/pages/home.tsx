@@ -988,6 +988,74 @@ export default function Home() {
                 )}
               </CardContent>
             </Card>
+
+            {/* CISA KEV */}
+            <Card className="border-primary/20">
+              <CardHeader className="pb-3 border-b border-border/50 bg-secondary/20">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <ShieldAlert className="w-5 h-5 text-primary" />
+                  CISA KEV Matches
+                  <Badge
+                    variant="secondary"
+                    className="ml-2 bg-primary/10 text-primary"
+                  >
+                    {scanResult.cisaKev?.matched.length ?? 0} known exploited
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                {scanResult.cisaKev &&
+                scanResult.cisaKev.matched.length > 0 ? (
+                  <div className="space-y-3">
+                    {scanResult.cisaKev.matched.map((item) => (
+                      <div
+                        key={item.cveID}
+                        className="border border-destructive/30 rounded p-4 bg-destructive/10"
+                      >
+                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                          <div>
+                            <div className="text-lg font-bold text-destructive">
+                              {item.cveID}
+                            </div>
+                            <div className="mt-1 text-sm text-foreground">
+                              {item.vulnerabilityName || "Known exploited CVE"}
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {[item.vendorProject, item.product]
+                                .filter(Boolean)
+                                .join(" / ")}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {item.dateAdded && (
+                              <Badge
+                                variant="outline"
+                                className="border-primary/30 text-muted-foreground"
+                              >
+                                Added {item.dateAdded}
+                              </Badge>
+                            )}
+                            {item.knownRansomwareCampaignUse && (
+                              <Badge
+                                variant="outline"
+                                className="border-destructive/30 text-destructive"
+                              >
+                                Ransomware:{" "}
+                                {item.knownRansomwareCampaignUse}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    No Shodan-reported CVEs matched the CISA KEV catalog.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>

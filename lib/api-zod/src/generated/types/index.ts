@@ -7,6 +7,8 @@
  */
 
 export * from "./abuseIpInfo";
+export * from "./cisaKevInfo";
+export * from "./cisaKevMatch";
 export * from "./dnsRecords";
 export * from "./dnsSecurityInfo";
 export * from "./errorResponse";

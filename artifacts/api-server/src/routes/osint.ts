@@ -80,6 +80,22 @@ type VirusTotalInfo = {
   categories?: Record<string, string>;
 };
 
+type CisaKevMatch = {
+  cveID: string;
+  vendorProject?: string;
+  product?: string;
+  vulnerabilityName?: string;
+  dateAdded?: string;
+  dueDate?: string;
+  knownRansomwareCampaignUse?: string;
+};
+
+type CisaKevInfo = {
+  catalogVersion?: string;
+  dateReleased?: string;
+  matched: CisaKevMatch[];
+};
+
 type ScanResultForReport = {
   domain: string;
   timestamp: string;
@@ -93,6 +109,7 @@ type ScanResultForReport = {
   abuseIpDbConfigured?: boolean;
   shodan?: ShodanHostInfo[] | null;
   shodanConfigured: boolean;
+  cisaKev?: CisaKevInfo | null;
   virusTotal?: VirusTotalInfo | null;
   virusTotalConfigured: boolean;
   errors?: Record<string, string>;
@@ -636,6 +653,38 @@ async function get_abuseipdb_info(
   return results;
 }
 
+async function get_cisa_kev_matches(cveIds: string[]): Promise<CisaKevInfo> {
+  const normalizedCves = new Set(cveIds.map((cve) => cve.toUpperCase()));
+  if (normalizedCves.size === 0) return { matched: [] };
+
+  const resp = await fetch(
+    "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+    {
+      headers: { "User-Agent": "OSINT-Demo/1.0 (educational)" },
+      signal: AbortSignal.timeout(10000),
+    },
+  );
+
+  if (!resp.ok) {
+    throw new Error(`CISA KEV catalog returned ${resp.status}`);
+  }
+
+  const data = (await resp.json()) as {
+    catalogVersion?: string;
+    dateReleased?: string;
+    vulnerabilities?: CisaKevMatch[];
+  };
+
+  return {
+    catalogVersion: data.catalogVersion,
+    dateReleased: data.dateReleased,
+    matched:
+      data.vulnerabilities?.filter((entry) =>
+        normalizedCves.has(entry.cveID.toUpperCase()),
+      ) ?? [],
+  };
+}
+
 // Generate a Markdown report from scan results
 function generate_markdown_report(result: ScanResultForReport): string {
   const lines: string[] = [];
@@ -797,6 +846,24 @@ function generate_markdown_report(result: ScanResultForReport): string {
     }
   }
 
+  lines.push(`\n## CISA Known Exploited Vulnerabilities`);
+  if (!result.cisaKev) {
+    lines.push(`CISA KEV matching was not available.`);
+  } else if (result.cisaKev.matched.length === 0) {
+    lines.push(`No Shodan-reported CVEs matched the CISA KEV catalog.`);
+  } else {
+    lines.push(
+      `Matched **${result.cisaKev.matched.length}** CVE(s) in CISA KEV catalog version ${result.cisaKev.catalogVersion ?? "unknown"}.`,
+    );
+    lines.push(`| CVE | Vendor/Product | Date Added | Due Date | Ransomware |`);
+    lines.push(`|-----|----------------|------------|----------|------------|`);
+    for (const item of result.cisaKev.matched) {
+      lines.push(
+        `| ${item.cveID} | ${[item.vendorProject, item.product].filter(Boolean).join(" / ") || "-"} | ${item.dateAdded ?? "-"} | ${item.dueDate ?? "-"} | ${item.knownRansomwareCampaignUse ?? "-"} |`,
+      );
+    }
+  }
+
   lines.push(`\n## VirusTotal Reputation`);
   if (!result.virusTotalConfigured) {
     lines.push(`VirusTotal API key not configured.`);
@@ -941,6 +1008,25 @@ router.post("/osint/scan", async (req, res) => {
     }
   }
 
+  const reportedCves = [
+    ...new Set(
+      (shodan ?? [])
+        .flatMap((host) => host.vulns)
+        .filter((cve) => /^CVE-\d{4}-\d{4,}$/i.test(cve)),
+    ),
+  ];
+  let cisaKev: CisaKevInfo | null = { matched: [] };
+
+  if (reportedCves.length > 0) {
+    try {
+      cisaKev = await get_cisa_kev_matches(reportedCves);
+    } catch (err) {
+      errors["cisaKev"] =
+        err instanceof Error ? err.message : "CISA KEV query failed";
+      cisaKev = null;
+    }
+  }
+
   // VirusTotal integration
   const vtKey = process.env["VIRUSTOTAL_API_KEY"];
   const virusTotalConfigured = !!vtKey;
@@ -975,6 +1061,7 @@ router.post("/osint/scan", async (req, res) => {
     abuseIpDbConfigured,
     shodan,
     shodanConfigured,
+    cisaKev,
     virusTotal,
     virusTotalConfigured,
     errors,

@@ -306,6 +306,38 @@ components:
         - country
         - tags
         - vulns
+    CisaKevMatch:
+      type: object
+      properties:
+        cveID:
+          type: string
+        vendorProject:
+          type: string
+        product:
+          type: string
+        vulnerabilityName:
+          type: string
+        dateAdded:
+          type: string
+        dueDate:
+          type: string
+        knownRansomwareCampaignUse:
+          type: string
+      required:
+        - cveID
+    CisaKevInfo:
+      type: object
+      properties:
+        catalogVersion:
+          type: string
+        dateReleased:
+          type: string
+        matched:
+          type: array
+          items:
+            $ref: "#/components/schemas/CisaKevMatch"
+      required:
+        - matched
     VirusTotalInfo:
       type: object
       properties:
@@ -451,6 +483,10 @@ components:
             $ref: "#/components/schemas/ShodanHostInfo"
         shodanConfigured:
           type: boolean
+        cisaKev:
+          nullable: true
+          oneOf:
+            - $ref: "#/components/schemas/CisaKevInfo"
         virusTotal:
           nullable: true
           oneOf:

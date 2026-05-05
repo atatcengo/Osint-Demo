@@ -55,6 +55,22 @@ export interface ShodanHostInfo {
   vulns: string[];
 }
 
+export interface CisaKevMatch {
+  cveID: string;
+  vendorProject?: string;
+  product?: string;
+  vulnerabilityName?: string;
+  dateAdded?: string;
+  dueDate?: string;
+  knownRansomwareCampaignUse?: string;
+}
+
+export interface CisaKevInfo {
+  catalogVersion?: string;
+  dateReleased?: string;
+  matched: CisaKevMatch[];
+}
+
 export type VirusTotalInfoCategories = { [key: string]: string };
 
 export interface VirusTotalInfo {
@@ -118,6 +134,7 @@ export interface ScanResult {
   abuseIpDbConfigured?: boolean;
   shodan?: ShodanHostInfo[] | null;
   shodanConfigured: boolean;
+  cisaKev?: CisaKevInfo | null;
   virusTotal?: VirusTotalInfo | null;
   virusTotalConfigured: boolean;
   errors?: ScanResultErrors;

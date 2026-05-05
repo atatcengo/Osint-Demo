@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AbuseIpInfo } from "./abuseIpInfo";
+import type { CisaKevInfo } from "./cisaKevInfo";
 import type { DnsRecords } from "./dnsRecords";
 import type { DnsSecurityInfo } from "./dnsSecurityInfo";
 import type { ScanResultErrors } from "./scanResultErrors";
@@ -28,6 +29,7 @@ export interface ScanResult {
   abuseIpDbConfigured?: boolean;
   shodan?: ShodanHostInfo[] | null;
   shodanConfigured: boolean;
+  cisaKev?: CisaKevInfo | null;
   virusTotal?: VirusTotalInfo | null;
   virusTotalConfigured: boolean;
   errors?: ScanResultErrors;

@@ -122,6 +122,23 @@ export const RunOsintScanResponse = zod.object({
     )
     .nullish(),
   shodanConfigured: zod.boolean(),
+  cisaKev: zod
+    .object({
+      catalogVersion: zod.string().optional(),
+      dateReleased: zod.string().optional(),
+      matched: zod.array(
+        zod.object({
+          cveID: zod.string(),
+          vendorProject: zod.string().optional(),
+          product: zod.string().optional(),
+          vulnerabilityName: zod.string().optional(),
+          dateAdded: zod.string().optional(),
+          dueDate: zod.string().optional(),
+          knownRansomwareCampaignUse: zod.string().optional(),
+        }),
+      ),
+    })
+    .nullish(),
   virusTotal: zod
     .object({
       harmless: zod.number(),
@@ -226,6 +243,23 @@ export const GenerateOsintReportBody = zod.object({
     )
     .nullish(),
   shodanConfigured: zod.boolean(),
+  cisaKev: zod
+    .object({
+      catalogVersion: zod.string().optional(),
+      dateReleased: zod.string().optional(),
+      matched: zod.array(
+        zod.object({
+          cveID: zod.string(),
+          vendorProject: zod.string().optional(),
+          product: zod.string().optional(),
+          vulnerabilityName: zod.string().optional(),
+          dateAdded: zod.string().optional(),
+          dueDate: zod.string().optional(),
+          knownRansomwareCampaignUse: zod.string().optional(),
+        }),
+      ),
+    })
+    .nullish(),
   virusTotal: zod
     .object({
       harmless: zod.number(),
@@ -341,6 +375,23 @@ export const ListScanHistoryResponseItem = zod.object({
       )
       .nullish(),
     shodanConfigured: zod.boolean(),
+    cisaKev: zod
+      .object({
+        catalogVersion: zod.string().optional(),
+        dateReleased: zod.string().optional(),
+        matched: zod.array(
+          zod.object({
+            cveID: zod.string(),
+            vendorProject: zod.string().optional(),
+            product: zod.string().optional(),
+            vulnerabilityName: zod.string().optional(),
+            dateAdded: zod.string().optional(),
+            dueDate: zod.string().optional(),
+            knownRansomwareCampaignUse: zod.string().optional(),
+          }),
+        ),
+      })
+      .nullish(),
     virusTotal: zod
       .object({
         harmless: zod.number(),
@@ -447,6 +498,23 @@ export const SaveScanResultBody = zod.object({
     )
     .nullish(),
   shodanConfigured: zod.boolean(),
+  cisaKev: zod
+    .object({
+      catalogVersion: zod.string().optional(),
+      dateReleased: zod.string().optional(),
+      matched: zod.array(
+        zod.object({
+          cveID: zod.string(),
+          vendorProject: zod.string().optional(),
+          product: zod.string().optional(),
+          vulnerabilityName: zod.string().optional(),
+          dateAdded: zod.string().optional(),
+          dueDate: zod.string().optional(),
+          knownRansomwareCampaignUse: zod.string().optional(),
+        }),
+      ),
+    })
+    .nullish(),
   virusTotal: zod
     .object({
       harmless: zod.number(),
@@ -561,6 +629,23 @@ export const GetScanHistoryEntryResponse = zod.object({
       )
       .nullish(),
     shodanConfigured: zod.boolean(),
+    cisaKev: zod
+      .object({
+        catalogVersion: zod.string().optional(),
+        dateReleased: zod.string().optional(),
+        matched: zod.array(
+          zod.object({
+            cveID: zod.string(),
+            vendorProject: zod.string().optional(),
+            product: zod.string().optional(),
+            vulnerabilityName: zod.string().optional(),
+            dateAdded: zod.string().optional(),
+            dueDate: zod.string().optional(),
+            knownRansomwareCampaignUse: zod.string().optional(),
+          }),
+        ),
+      })
+      .nullish(),
     virusTotal: zod
       .object({
         harmless: zod.number(),
