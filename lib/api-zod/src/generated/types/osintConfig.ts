@@ -11,5 +11,4 @@ export interface OsintConfig {
   virusTotalConfigured: boolean;
   urlscanConfigured: boolean;
   abuseIpDbConfigured: boolean;
-  censysConfigured: boolean;
 }

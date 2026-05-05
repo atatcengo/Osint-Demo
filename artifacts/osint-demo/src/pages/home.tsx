@@ -17,7 +17,6 @@ import {
   History,
   Trash2,
   Fingerprint,
-  Archive,
   ExternalLink,
   Radar,
 } from "lucide-react";
@@ -507,36 +506,40 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* RDAP */}
+              {/* WHOIS */}
               <Card className="border-primary/20">
                 <CardHeader className="pb-3 border-b border-border/50 bg-secondary/20">
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <Fingerprint className="w-5 h-5 text-primary" />
-                    RDAP Registration
+                    WHOIS Registration
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-4">
-                  {scanResult.rdap ? (
+                  {scanResult.whois ? (
                     <div className="space-y-3 text-sm">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-xs font-bold text-muted-foreground uppercase">
+                            Server
+                          </div>
+                          <div className="text-foreground break-words">
+                            {scanResult.whois.server || "Unknown"}
+                          </div>
+                        </div>
                         <div>
                           <div className="text-xs font-bold text-muted-foreground uppercase">
                             Registrar
                           </div>
                           <div className="text-foreground break-words">
-                            {scanResult.rdap.registrar || "Unknown"}
+                            {scanResult.whois.registrar || "Unknown"}
                           </div>
                         </div>
                         <div>
                           <div className="text-xs font-bold text-muted-foreground uppercase">
-                            Registered
+                            Created
                           </div>
                           <div className="text-foreground">
-                            {scanResult.rdap.registrationDate
-                              ? new Date(
-                                  scanResult.rdap.registrationDate,
-                                ).toLocaleDateString()
-                              : "Unknown"}
+                            {scanResult.whois.creationDate || "Unknown"}
                           </div>
                         </div>
                         <div>
@@ -544,33 +547,17 @@ export default function Home() {
                             Expires
                           </div>
                           <div className="text-foreground">
-                            {scanResult.rdap.expirationDate
-                              ? new Date(
-                                  scanResult.rdap.expirationDate,
-                                ).toLocaleDateString()
-                              : "Unknown"}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-muted-foreground uppercase">
-                            Updated
-                          </div>
-                          <div className="text-foreground">
-                            {scanResult.rdap.updatedDate
-                              ? new Date(
-                                  scanResult.rdap.updatedDate,
-                                ).toLocaleDateString()
-                              : "Unknown"}
+                            {scanResult.whois.expirationDate || "Unknown"}
                           </div>
                         </div>
                       </div>
-                      {scanResult.rdap.nameservers.length > 0 && (
+                      {scanResult.whois.nameServers.length > 0 && (
                         <div>
                           <div className="text-xs font-bold text-muted-foreground uppercase mb-1">
                             Nameservers
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {scanResult.rdap.nameservers.map((name) => (
+                            {scanResult.whois.nameServers.map((name) => (
                               <Badge
                                 key={name}
                                 variant="outline"
@@ -582,68 +569,38 @@ export default function Home() {
                           </div>
                         </div>
                       )}
-                      {scanResult.rdap.abuseContacts.length > 0 && (
+                      {scanResult.whois.statuses.length > 0 && (
                         <div>
                           <div className="text-xs font-bold text-muted-foreground uppercase mb-1">
-                            Abuse Contacts
+                            Statuses
                           </div>
-                          <div className="space-y-1">
-                            {scanResult.rdap.abuseContacts.map((email) => (
-                              <div
-                                key={email}
-                                className="text-muted-foreground break-all"
+                          <div className="flex flex-wrap gap-2">
+                            {scanResult.whois.statuses.map((status) => (
+                              <Badge
+                                key={status}
+                                variant="outline"
+                                className="border-primary/30 text-muted-foreground"
                               >
-                                {email}
-                              </div>
+                                {status}
+                              </Badge>
                             ))}
                           </div>
                         </div>
                       )}
+                      {scanResult.whois.rawText && (
+                        <details className="rounded border border-border/50 bg-secondary/10 p-3">
+                          <summary className="cursor-pointer text-xs font-bold text-muted-foreground uppercase">
+                            Raw WHOIS
+                          </summary>
+                          <pre className="mt-3 max-h-52 overflow-y-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">
+                            {scanResult.whois.rawText}
+                          </pre>
+                        </details>
+                      )}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground py-4 text-center">
-                      No RDAP data returned.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Wayback */}
-              <Card className="border-primary/20">
-                <CardHeader className="pb-3 border-b border-border/50 bg-secondary/20">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Archive className="w-5 h-5 text-primary" />
-                    Wayback Machine
-                    <Badge
-                      variant="secondary"
-                      className="ml-2 bg-primary/10 text-primary"
-                    >
-                      {scanResult.wayback?.captures.length ?? 0} URLs
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  {scanResult.wayback &&
-                  scanResult.wayback.captures.length > 0 ? (
-                    <div className="max-h-64 overflow-y-auto space-y-3">
-                      {scanResult.wayback.captures.map((capture) => (
-                        <div
-                          key={`${capture.timestamp}-${capture.url}`}
-                          className="border border-border/50 rounded p-3 bg-secondary/10"
-                        >
-                          <div className="text-xs text-muted-foreground mb-1">
-                            {new Date(capture.timestamp).toLocaleString()}{" "}
-                            {capture.mimeType ? `- ${capture.mimeType}` : ""}
-                          </div>
-                          <div className="text-sm text-foreground break-all">
-                            {capture.url}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground py-4 text-center">
-                      No archived captures returned.
+                      No WHOIS data returned.
                     </p>
                   )}
                 </CardContent>
@@ -746,68 +703,6 @@ export default function Home() {
                   ) : (
                     <p className="text-sm text-muted-foreground py-4 text-center">
                       No AbuseIPDB data returned.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Censys */}
-              <Card className="border-primary/20">
-                <CardHeader className="pb-3 border-b border-border/50 bg-secondary/20">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Database className="w-5 h-5 text-primary" />
-                    Censys Hosts
-                    <Badge
-                      variant="secondary"
-                      className="ml-2 bg-primary/10 text-primary"
-                    >
-                      {scanResult.censys?.total ?? 0} matches
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  {!scanResult.censysConfigured ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                      <Key className="w-8 h-8 mb-2 opacity-50" />
-                      <p>API Credentials Not Configured</p>
-                    </div>
-                  ) : scanResult.censys &&
-                    scanResult.censys.hosts.length > 0 ? (
-                    <div className="space-y-4">
-                      {scanResult.censys.hosts.map((host) => (
-                        <div
-                          key={host.ip}
-                          className="border border-border/50 rounded p-3 bg-secondary/10"
-                        >
-                          <div className="font-bold text-primary">
-                            {host.ip}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {[host.location, host.autonomousSystem]
-                              .filter(Boolean)
-                              .join(" - ") || "No host metadata"}
-                          </div>
-                          {host.services.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-3">
-                              {host.services.map((service) => (
-                                <Badge
-                                  key={`${host.ip}-${service}`}
-                                  variant="outline"
-                                  className="border-primary/30 text-muted-foreground"
-                                >
-                                  {service}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground py-4 text-center">
-                      No Censys hosts returned.
                     </p>
                   )}
                 </CardContent>

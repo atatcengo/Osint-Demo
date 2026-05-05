@@ -1,5 +1,6 @@
 import { Router } from "express";
 import dns from "dns/promises";
+import net from "node:net";
 import { RunOsintScanBody, GenerateOsintReportBody } from "@workspace/api-zod";
 
 const router = Router();
@@ -22,25 +23,15 @@ type ShodanHostInfo = {
   vulns: string[];
 };
 
-type RdapInfo = {
+type WhoisInfo = {
+  server?: string;
   registrar?: string;
-  registrationDate?: string;
+  creationDate?: string;
   expirationDate?: string;
   updatedDate?: string;
-  status: string[];
-  nameservers: string[];
-  abuseContacts: string[];
-};
-
-type WaybackCapture = {
-  url: string;
-  timestamp: string;
-  statusCode?: string;
-  mimeType?: string;
-};
-
-type WaybackInfo = {
-  captures: WaybackCapture[];
+  statuses: string[];
+  nameServers: string[];
+  rawText: string;
 };
 
 type UrlscanResult = {
@@ -69,18 +60,6 @@ type AbuseIpInfo = {
   lastReportedAt?: string;
 };
 
-type CensysHostInfo = {
-  ip: string;
-  services: string[];
-  location?: string;
-  autonomousSystem?: string;
-};
-
-type CensysInfo = {
-  total: number;
-  hosts: CensysHostInfo[];
-};
-
 type VirusTotalInfo = {
   harmless: number;
   suspicious: number;
@@ -95,14 +74,11 @@ type ScanResultForReport = {
   timestamp: string;
   subdomains: { name: string }[];
   dns: DnsRecords;
-  rdap?: RdapInfo | null;
-  wayback?: WaybackInfo | null;
+  whois?: WhoisInfo | null;
   urlscan?: UrlscanInfo | null;
   urlscanConfigured?: boolean;
   abuseIpDb?: AbuseIpInfo[] | null;
   abuseIpDbConfigured?: boolean;
-  censys?: CensysInfo | null;
-  censysConfigured?: boolean;
   shodan?: ShodanHostInfo[] | null;
   shodanConfigured: boolean;
   virusTotal?: VirusTotalInfo | null;
@@ -204,164 +180,116 @@ async function get_dns_records(domain: string): Promise<{
   return results;
 }
 
-function get_vcard_values(vcardArray: unknown, key: string): string[] {
-  if (!Array.isArray(vcardArray) || !Array.isArray(vcardArray[1])) return [];
+function query_whois_server(server: string, query: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let data = "";
+    const socket = net.createConnection(43, server);
 
-  return vcardArray[1]
-    .filter((entry: unknown): entry is unknown[] => Array.isArray(entry))
-    .filter((entry) => entry[0] === key && typeof entry[3] === "string")
-    .map((entry) => String(entry[3]));
-}
+    socket.setTimeout(8000);
+    socket.setEncoding("utf8");
 
-function get_rdap_event_date(
-  events: Array<{ eventAction?: string; eventDate?: string }> | undefined,
-  actions: string[],
-): string | undefined {
-  return events?.find(
-    (event) =>
-      event.eventAction && actions.includes(event.eventAction.toLowerCase()),
-  )?.eventDate;
-}
+    socket.on("connect", () => {
+      socket.write(`${query}\r\n`);
+    });
 
-async function get_rdap_info(domain: string): Promise<RdapInfo> {
-  const resp = await fetch(
-    `https://rdap.org/domain/${encodeURIComponent(domain)}`,
-    {
-      headers: { "User-Agent": "OSINT-Demo/1.0 (educational)" },
-      signal: AbortSignal.timeout(10000),
-    },
-  );
+    socket.on("data", (chunk) => {
+      data += chunk;
+      if (data.length > 50000) socket.end();
+    });
 
-  if (resp.status === 404) {
-    return { status: [], nameservers: [], abuseContacts: [] };
-  }
-
-  if (!resp.ok) {
-    throw new Error(`RDAP returned ${resp.status}`);
-  }
-
-  const data = (await resp.json()) as {
-    status?: string[];
-    events?: Array<{ eventAction?: string; eventDate?: string }>;
-    nameservers?: Array<{ ldhName?: string; unicodeName?: string }>;
-    entities?: Array<{
-      roles?: string[];
-      vcardArray?: unknown;
-      entities?: Array<{ roles?: string[]; vcardArray?: unknown }>;
-    }>;
-  };
-
-  const registrarEntity = data.entities?.find((entity) =>
-    entity.roles?.includes("registrar"),
-  );
-  const registrar = get_vcard_values(registrarEntity?.vcardArray, "fn")[0];
-
-  const abuseContacts = new Set<string>();
-  for (const entity of data.entities ?? []) {
-    const nested = [entity, ...(entity.entities ?? [])];
-    for (const candidate of nested) {
-      if (!candidate.roles?.includes("abuse")) continue;
-      for (const email of get_vcard_values(candidate.vcardArray, "email")) {
-        abuseContacts.add(email);
-      }
-    }
-  }
-
-  return {
-    registrar,
-    registrationDate: get_rdap_event_date(data.events, ["registration"]),
-    expirationDate: get_rdap_event_date(data.events, ["expiration"]),
-    updatedDate: get_rdap_event_date(data.events, [
-      "last changed",
-      "last update of rdap database",
-    ]),
-    status: data.status ?? [],
-    nameservers:
-      data.nameservers
-        ?.map((ns) => ns.ldhName ?? ns.unicodeName)
-        .filter((name): name is string => Boolean(name)) ?? [],
-    abuseContacts: [...abuseContacts],
-  };
-}
-
-function format_wayback_timestamp(timestamp: string): string {
-  if (!/^\d{14}$/.test(timestamp)) return timestamp;
-  return `${timestamp.slice(0, 4)}-${timestamp.slice(4, 6)}-${timestamp.slice(6, 8)}T${timestamp.slice(8, 10)}:${timestamp.slice(10, 12)}:${timestamp.slice(12, 14)}Z`;
-}
-
-async function get_wayback_info(domain: string): Promise<WaybackInfo> {
-  const params = new URLSearchParams({
-    url: `${domain}/*`,
-    output: "json",
-    fl: "timestamp,original,statuscode,mimetype",
-    filter: "statuscode:200",
-    collapse: "urlkey",
-    limit: "10",
+    socket.on("end", () => resolve(data));
+    socket.on("timeout", () => {
+      socket.destroy(new Error(`WHOIS query to ${server} timed out`));
+    });
+    socket.on("error", reject);
   });
+}
+
+function get_whois_field(
+  rawText: string,
+  patterns: RegExp[],
+): string | undefined {
+  for (const pattern of patterns) {
+    const flags = pattern.flags.includes("g")
+      ? pattern.flags
+      : `${pattern.flags}g`;
+    const match = new RegExp(pattern.source, flags).exec(rawText);
+    if (match?.[1]) return match[1].trim();
+  }
+  return undefined;
+}
+
+function get_whois_fields(rawText: string, patterns: RegExp[]): string[] {
+  const values = new Set<string>();
+  for (const pattern of patterns) {
+    for (const match of rawText.matchAll(pattern)) {
+      if (match[1]) values.add(match[1].trim());
+    }
+  }
+  return [...values];
+}
+
+function parse_whois_info(rawText: string, server?: string): WhoisInfo {
+  return {
+    server,
+    registrar: get_whois_field(rawText, [
+      /^Registrar:\s*(.+)$/gim,
+      /^Sponsoring Registrar:\s*(.+)$/gim,
+      /^Registrar Name:\s*(.+)$/gim,
+      /^Organization Name\s*:\s*(.+)$/gim,
+    ]),
+    creationDate: get_whois_field(rawText, [
+      /^Creation Date:\s*(.+)$/gim,
+      /^Created On:\s*(.+)$/gim,
+      /^Registered On:\s*(.+)$/gim,
+      /^Domain Registration Date:\s*(.+)$/gim,
+      /^Created on\.+:\s*(.+)$/gim,
+    ]),
+    expirationDate: get_whois_field(rawText, [
+      /^Registry Expiry Date:\s*(.+)$/gim,
+      /^Expiration Date:\s*(.+)$/gim,
+      /^Expiry Date:\s*(.+)$/gim,
+      /^Expires On:\s*(.+)$/gim,
+      /^Expires on\.+:\s*(.+)$/gim,
+    ]),
+    updatedDate: get_whois_field(rawText, [
+      /^Updated Date:\s*(.+)$/gim,
+      /^Last Updated On:\s*(.+)$/gim,
+      /^Last Modified:\s*(.+)$/gim,
+      /^Last Update Time:\s*(.+)$/gim,
+    ]),
+    statuses: get_whois_fields(rawText, [
+      /^Domain Status:\s*(.+)$/gim,
+      /^Frozen Status:\s*(.+)$/gim,
+      /^Transfer Status:\s*(.+)$/gim,
+      /^Status:\s*(.+)$/gim,
+    ]),
+    nameServers: get_whois_fields(rawText, [
+      /^Name Server:\s*(.+)$/gim,
+      /^Nameserver:\s*(.+)$/gim,
+      /^nserver:\s*(.+)$/gim,
+      /^\s*([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)\s+(?:\d{1,3}\.){3}\d{1,3}\s*$/gim,
+    ]).map((value) => value.split(/\s+/)[0]),
+    rawText: rawText.slice(0, 8000),
+  };
+}
+
+async function get_whois_info(domain: string): Promise<WhoisInfo> {
+  const ianaRaw = await query_whois_server("whois.iana.org", domain);
+  const referServer = get_whois_field(ianaRaw, [
+    /^refer:\s*(.+)$/gim,
+    /^whois:\s*(.+)$/gim,
+  ]);
+
+  if (!referServer) {
+    return parse_whois_info(ianaRaw, "whois.iana.org");
+  }
+
   try {
-    const resp = await fetch(`https://web.archive.org/cdx?${params}`, {
-      headers: { "User-Agent": "OSINT-Demo/1.0 (educational)" },
-      signal: AbortSignal.timeout(8000),
-    });
-
-    if (!resp.ok) {
-      throw new Error(`Wayback CDX returned ${resp.status}`);
-    }
-
-    const rows = (await resp.json()) as unknown[][];
-    const captures = rows.slice(1).flatMap((row): WaybackCapture[] => {
-      const [timestamp, url, statusCode, mimeType] = row;
-      if (typeof timestamp !== "string" || typeof url !== "string") return [];
-
-      return [
-        {
-          url,
-          timestamp: format_wayback_timestamp(timestamp),
-          statusCode: typeof statusCode === "string" ? statusCode : undefined,
-          mimeType: typeof mimeType === "string" ? mimeType : undefined,
-        },
-      ];
-    });
-
-    return { captures };
+    const registryRaw = await query_whois_server(referServer, domain);
+    return parse_whois_info(registryRaw, referServer);
   } catch {
-    const availableParams = new URLSearchParams({ url: domain });
-    const resp = await fetch(
-      `https://archive.org/wayback/available?${availableParams}`,
-      {
-        headers: { "User-Agent": "OSINT-Demo/1.0 (educational)" },
-        signal: AbortSignal.timeout(8000),
-      },
-    );
-
-    if (!resp.ok) {
-      throw new Error(`Wayback availability returned ${resp.status}`);
-    }
-
-    const data = (await resp.json()) as {
-      archived_snapshots?: {
-        closest?: {
-          available?: boolean;
-          url?: string;
-          timestamp?: string;
-          status?: string;
-        };
-      };
-    };
-    const closest = data.archived_snapshots?.closest;
-    if (!closest?.available || !closest.url || !closest.timestamp) {
-      return { captures: [] };
-    }
-
-    return {
-      captures: [
-        {
-          url: closest.url,
-          timestamp: format_wayback_timestamp(closest.timestamp),
-          statusCode: closest.status,
-        },
-      ],
-    };
+    return parse_whois_info(ianaRaw, "whois.iana.org");
   }
 }
 
@@ -610,76 +538,6 @@ async function get_abuseipdb_info(
   return results;
 }
 
-async function get_censys_info(
-  domain: string,
-  apiId: string,
-  apiSecret: string,
-): Promise<CensysInfo> {
-  const params = new URLSearchParams({
-    q: domain,
-    per_page: "5",
-    virtual_hosts: "EXCLUDE",
-  });
-  const credentials = Buffer.from(`${apiId}:${apiSecret}`).toString("base64");
-  const resp = await fetch(
-    `https://search.censys.io/api/v2/hosts/search?${params}`,
-    {
-      headers: {
-        Authorization: `Basic ${credentials}`,
-        Accept: "application/json",
-        "User-Agent": "OSINT-Demo/1.0 (educational)",
-      },
-      signal: AbortSignal.timeout(12000),
-    },
-  );
-
-  if (!resp.ok) {
-    throw new Error(`Censys API error: ${resp.status}`);
-  }
-
-  const data = (await resp.json()) as {
-    result?: {
-      total?: number;
-      hits?: Array<{
-        ip?: string;
-        location?: { country?: string; city?: string };
-        autonomous_system?: { name?: string; asn?: number };
-        services?: Array<{
-          port?: number;
-          service_name?: string;
-          transport_protocol?: string;
-        }>;
-      }>;
-    };
-  };
-
-  return {
-    total: data.result?.total ?? 0,
-    hosts:
-      data.result?.hits?.flatMap((hit): CensysHostInfo[] => {
-        if (!hit.ip) return [];
-        return [
-          {
-            ip: hit.ip,
-            services:
-              hit.services?.map((service) =>
-                [service.service_name, service.port, service.transport_protocol]
-                  .filter(Boolean)
-                  .join("/"),
-              ) ?? [],
-            location:
-              [hit.location?.city, hit.location?.country]
-                .filter(Boolean)
-                .join(", ") || undefined,
-            autonomousSystem: hit.autonomous_system
-              ? `${hit.autonomous_system.name ?? "AS"} ${hit.autonomous_system.asn ?? ""}`.trim()
-              : undefined,
-          },
-        ];
-      }) ?? [],
-  };
-}
-
 // Generate a Markdown report from scan results
 function generate_markdown_report(result: ScanResultForReport): string {
   const lines: string[] = [];
@@ -740,36 +598,24 @@ function generate_markdown_report(result: ScanResultForReport): string {
     for (const r of result.dns.NS) lines.push(`| \`${r}\` |`);
   }
 
-  lines.push(`\n## RDAP Registration`);
-  if (!result.rdap) {
-    lines.push(`No RDAP data available.`);
+  lines.push(`\n## WHOIS Registration`);
+  if (!result.whois) {
+    lines.push(`No WHOIS data available.`);
   } else {
-    if (result.rdap.registrar)
-      lines.push(`- **Registrar:** ${result.rdap.registrar}`);
-    if (result.rdap.registrationDate)
-      lines.push(`- **Registered:** ${result.rdap.registrationDate}`);
-    if (result.rdap.expirationDate)
-      lines.push(`- **Expires:** ${result.rdap.expirationDate}`);
-    if (result.rdap.updatedDate)
-      lines.push(`- **Updated:** ${result.rdap.updatedDate}`);
-    if (result.rdap.nameservers.length > 0) {
-      lines.push(`- **Nameservers:** ${result.rdap.nameservers.join(", ")}`);
+    if (result.whois.server) lines.push(`- **Server:** ${result.whois.server}`);
+    if (result.whois.registrar)
+      lines.push(`- **Registrar:** ${result.whois.registrar}`);
+    if (result.whois.creationDate)
+      lines.push(`- **Created:** ${result.whois.creationDate}`);
+    if (result.whois.expirationDate)
+      lines.push(`- **Expires:** ${result.whois.expirationDate}`);
+    if (result.whois.updatedDate)
+      lines.push(`- **Updated:** ${result.whois.updatedDate}`);
+    if (result.whois.nameServers.length > 0) {
+      lines.push(`- **Nameservers:** ${result.whois.nameServers.join(", ")}`);
     }
-    if (result.rdap.abuseContacts.length > 0) {
-      lines.push(
-        `- **Abuse contacts:** ${result.rdap.abuseContacts.join(", ")}`,
-      );
-    }
-  }
-
-  lines.push(`\n## Wayback Machine`);
-  if (!result.wayback || result.wayback.captures.length === 0) {
-    lines.push(`No recent archived captures returned.`);
-  } else {
-    lines.push(`| Timestamp | URL |`);
-    lines.push(`|-----------|-----|`);
-    for (const capture of result.wayback.captures) {
-      lines.push(`| ${capture.timestamp} | ${capture.url} |`);
+    if (result.whois.statuses.length > 0) {
+      lines.push(`- **Statuses:** ${result.whois.statuses.join(", ")}`);
     }
   }
 
@@ -796,22 +642,6 @@ function generate_markdown_report(result: ScanResultForReport): string {
     for (const ip of result.abuseIpDb) {
       lines.push(
         `| ${ip.ip} | ${ip.abuseConfidenceScore} | ${ip.totalReports} |`,
-      );
-    }
-  }
-
-  lines.push(`\n## Censys`);
-  if (!result.censysConfigured) {
-    lines.push(`Censys API credentials not configured.`);
-  } else if (!result.censys || result.censys.hosts.length === 0) {
-    lines.push(`No Censys hosts returned.`);
-  } else {
-    lines.push(
-      `Found ${result.censys.total} matching Censys hosts. Showing ${result.censys.hosts.length}.`,
-    );
-    for (const host of result.censys.hosts) {
-      lines.push(
-        `- ${host.ip}: ${host.services.join(", ") || "No services listed"}`,
       );
     }
   }
@@ -873,9 +703,6 @@ router.get("/osint/config", (req, res) => {
     virusTotalConfigured: !!process.env["VIRUSTOTAL_API_KEY"],
     urlscanConfigured: !!process.env["URLSCAN_API_KEY"],
     abuseIpDbConfigured: !!process.env["ABUSEIPDB_API_KEY"],
-    censysConfigured: !!(
-      process.env["CENSYS_API_ID"] && process.env["CENSYS_API_SECRET"]
-    ),
   });
 });
 
@@ -904,14 +731,12 @@ router.post("/osint/scan", async (req, res) => {
   const [
     subdomainsResult,
     dnsResult,
-    rdapResult,
-    waybackResult,
+    whoisResult,
     urlscanResult,
   ] = await Promise.allSettled([
     get_crtsh_subdomains(domain),
     get_dns_records(domain),
-    get_rdap_info(domain),
-    get_wayback_info(domain),
+    get_whois_info(domain),
     get_urlscan_info(domain, process.env["URLSCAN_API_KEY"]),
   ]);
 
@@ -929,15 +754,10 @@ router.post("/osint/scan", async (req, res) => {
 
   const resolvedIPs = dns.A;
 
-  const rdap =
-    rdapResult.status === "fulfilled"
-      ? rdapResult.value
-      : ((errors["rdap"] = rdapResult.reason?.message ?? "Failed"), null);
-
-  const wayback =
-    waybackResult.status === "fulfilled"
-      ? waybackResult.value
-      : ((errors["wayback"] = waybackResult.reason?.message ?? "Failed"), null);
+  const whois =
+    whoisResult.status === "fulfilled"
+      ? whoisResult.value
+      : ((errors["whois"] = whoisResult.reason?.message ?? "Failed"), null);
 
   const urlscanConfigured = !!process.env["URLSCAN_API_KEY"];
   const urlscan =
@@ -955,20 +775,6 @@ router.post("/osint/scan", async (req, res) => {
     } catch (err) {
       errors["abuseIpDb"] =
         err instanceof Error ? err.message : "AbuseIPDB query failed";
-    }
-  }
-
-  const censysApiId = process.env["CENSYS_API_ID"];
-  const censysApiSecret = process.env["CENSYS_API_SECRET"];
-  const censysConfigured = !!(censysApiId && censysApiSecret);
-  let censys: CensysInfo | null = null;
-
-  if (censysConfigured && censysApiId && censysApiSecret) {
-    try {
-      censys = await get_censys_info(domain, censysApiId, censysApiSecret);
-    } catch (err) {
-      errors["censys"] =
-        err instanceof Error ? err.message : "Censys query failed";
     }
   }
 
@@ -1027,14 +833,11 @@ router.post("/osint/scan", async (req, res) => {
     timestamp,
     subdomains,
     dns,
-    rdap,
-    wayback,
+    whois,
     urlscan,
     urlscanConfigured,
     abuseIpDb,
     abuseIpDbConfigured,
-    censys,
-    censysConfigured,
     shodan,
     shodanConfigured,
     virusTotal,

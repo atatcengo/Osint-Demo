@@ -7,14 +7,11 @@
  */
 
 export * from "./abuseIpInfo";
-export * from "./censysHostInfo";
-export * from "./censysInfo";
 export * from "./dnsRecords";
 export * from "./errorResponse";
 export * from "./healthStatus";
 export * from "./markdownReport";
 export * from "./osintConfig";
-export * from "./rdapInfo";
 export * from "./scanHistoryEntry";
 export * from "./scanRequest";
 export * from "./scanResult";
@@ -25,5 +22,4 @@ export * from "./urlscanInfo";
 export * from "./urlscanResult";
 export * from "./virusTotalInfo";
 export * from "./virusTotalInfoCategories";
-export * from "./waybackCapture";
-export * from "./waybackInfo";
+export * from "./whoisInfo";

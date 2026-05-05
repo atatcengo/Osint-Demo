@@ -24,7 +24,6 @@ export const GetOsintConfigResponse = zod.object({
   virusTotalConfigured: zod.boolean(),
   urlscanConfigured: zod.boolean(),
   abuseIpDbConfigured: zod.boolean(),
-  censysConfigured: zod.boolean(),
 });
 
 /**
@@ -50,27 +49,16 @@ export const RunOsintScanResponse = zod.object({
     TXT: zod.array(zod.string()),
     NS: zod.array(zod.string()),
   }),
-  rdap: zod
+  whois: zod
     .object({
+      server: zod.string().optional(),
       registrar: zod.string().optional(),
-      registrationDate: zod.string().optional(),
+      creationDate: zod.string().optional(),
       expirationDate: zod.string().optional(),
       updatedDate: zod.string().optional(),
-      status: zod.array(zod.string()),
-      nameservers: zod.array(zod.string()),
-      abuseContacts: zod.array(zod.string()),
-    })
-    .nullish(),
-  wayback: zod
-    .object({
-      captures: zod.array(
-        zod.object({
-          url: zod.string(),
-          timestamp: zod.string(),
-          statusCode: zod.string().optional(),
-          mimeType: zod.string().optional(),
-        }),
-      ),
+      statuses: zod.array(zod.string()),
+      nameServers: zod.array(zod.string()),
+      rawText: zod.string(),
     })
     .nullish(),
   urlscan: zod
@@ -105,20 +93,6 @@ export const RunOsintScanResponse = zod.object({
     )
     .nullish(),
   abuseIpDbConfigured: zod.boolean().optional(),
-  censys: zod
-    .object({
-      total: zod.number(),
-      hosts: zod.array(
-        zod.object({
-          ip: zod.string(),
-          services: zod.array(zod.string()),
-          location: zod.string().optional(),
-          autonomousSystem: zod.string().optional(),
-        }),
-      ),
-    })
-    .nullish(),
-  censysConfigured: zod.boolean().optional(),
   shodan: zod
     .array(
       zod.object({
@@ -167,27 +141,16 @@ export const GenerateOsintReportBody = zod.object({
     TXT: zod.array(zod.string()),
     NS: zod.array(zod.string()),
   }),
-  rdap: zod
+  whois: zod
     .object({
+      server: zod.string().optional(),
       registrar: zod.string().optional(),
-      registrationDate: zod.string().optional(),
+      creationDate: zod.string().optional(),
       expirationDate: zod.string().optional(),
       updatedDate: zod.string().optional(),
-      status: zod.array(zod.string()),
-      nameservers: zod.array(zod.string()),
-      abuseContacts: zod.array(zod.string()),
-    })
-    .nullish(),
-  wayback: zod
-    .object({
-      captures: zod.array(
-        zod.object({
-          url: zod.string(),
-          timestamp: zod.string(),
-          statusCode: zod.string().optional(),
-          mimeType: zod.string().optional(),
-        }),
-      ),
+      statuses: zod.array(zod.string()),
+      nameServers: zod.array(zod.string()),
+      rawText: zod.string(),
     })
     .nullish(),
   urlscan: zod
@@ -222,20 +185,6 @@ export const GenerateOsintReportBody = zod.object({
     )
     .nullish(),
   abuseIpDbConfigured: zod.boolean().optional(),
-  censys: zod
-    .object({
-      total: zod.number(),
-      hosts: zod.array(
-        zod.object({
-          ip: zod.string(),
-          services: zod.array(zod.string()),
-          location: zod.string().optional(),
-          autonomousSystem: zod.string().optional(),
-        }),
-      ),
-    })
-    .nullish(),
-  censysConfigured: zod.boolean().optional(),
   shodan: zod
     .array(
       zod.object({
@@ -293,27 +242,16 @@ export const ListScanHistoryResponseItem = zod.object({
       TXT: zod.array(zod.string()),
       NS: zod.array(zod.string()),
     }),
-    rdap: zod
+    whois: zod
       .object({
+        server: zod.string().optional(),
         registrar: zod.string().optional(),
-        registrationDate: zod.string().optional(),
+        creationDate: zod.string().optional(),
         expirationDate: zod.string().optional(),
         updatedDate: zod.string().optional(),
-        status: zod.array(zod.string()),
-        nameservers: zod.array(zod.string()),
-        abuseContacts: zod.array(zod.string()),
-      })
-      .nullish(),
-    wayback: zod
-      .object({
-        captures: zod.array(
-          zod.object({
-            url: zod.string(),
-            timestamp: zod.string(),
-            statusCode: zod.string().optional(),
-            mimeType: zod.string().optional(),
-          }),
-        ),
+        statuses: zod.array(zod.string()),
+        nameServers: zod.array(zod.string()),
+        rawText: zod.string(),
       })
       .nullish(),
     urlscan: zod
@@ -348,20 +286,6 @@ export const ListScanHistoryResponseItem = zod.object({
       )
       .nullish(),
     abuseIpDbConfigured: zod.boolean().optional(),
-    censys: zod
-      .object({
-        total: zod.number(),
-        hosts: zod.array(
-          zod.object({
-            ip: zod.string(),
-            services: zod.array(zod.string()),
-            location: zod.string().optional(),
-            autonomousSystem: zod.string().optional(),
-          }),
-        ),
-      })
-      .nullish(),
-    censysConfigured: zod.boolean().optional(),
     shodan: zod
       .array(
         zod.object({
@@ -414,27 +338,16 @@ export const SaveScanResultBody = zod.object({
     TXT: zod.array(zod.string()),
     NS: zod.array(zod.string()),
   }),
-  rdap: zod
+  whois: zod
     .object({
+      server: zod.string().optional(),
       registrar: zod.string().optional(),
-      registrationDate: zod.string().optional(),
+      creationDate: zod.string().optional(),
       expirationDate: zod.string().optional(),
       updatedDate: zod.string().optional(),
-      status: zod.array(zod.string()),
-      nameservers: zod.array(zod.string()),
-      abuseContacts: zod.array(zod.string()),
-    })
-    .nullish(),
-  wayback: zod
-    .object({
-      captures: zod.array(
-        zod.object({
-          url: zod.string(),
-          timestamp: zod.string(),
-          statusCode: zod.string().optional(),
-          mimeType: zod.string().optional(),
-        }),
-      ),
+      statuses: zod.array(zod.string()),
+      nameServers: zod.array(zod.string()),
+      rawText: zod.string(),
     })
     .nullish(),
   urlscan: zod
@@ -469,20 +382,6 @@ export const SaveScanResultBody = zod.object({
     )
     .nullish(),
   abuseIpDbConfigured: zod.boolean().optional(),
-  censys: zod
-    .object({
-      total: zod.number(),
-      hosts: zod.array(
-        zod.object({
-          ip: zod.string(),
-          services: zod.array(zod.string()),
-          location: zod.string().optional(),
-          autonomousSystem: zod.string().optional(),
-        }),
-      ),
-    })
-    .nullish(),
-  censysConfigured: zod.boolean().optional(),
   shodan: zod
     .array(
       zod.object({
@@ -539,27 +438,16 @@ export const GetScanHistoryEntryResponse = zod.object({
       TXT: zod.array(zod.string()),
       NS: zod.array(zod.string()),
     }),
-    rdap: zod
+    whois: zod
       .object({
+        server: zod.string().optional(),
         registrar: zod.string().optional(),
-        registrationDate: zod.string().optional(),
+        creationDate: zod.string().optional(),
         expirationDate: zod.string().optional(),
         updatedDate: zod.string().optional(),
-        status: zod.array(zod.string()),
-        nameservers: zod.array(zod.string()),
-        abuseContacts: zod.array(zod.string()),
-      })
-      .nullish(),
-    wayback: zod
-      .object({
-        captures: zod.array(
-          zod.object({
-            url: zod.string(),
-            timestamp: zod.string(),
-            statusCode: zod.string().optional(),
-            mimeType: zod.string().optional(),
-          }),
-        ),
+        statuses: zod.array(zod.string()),
+        nameServers: zod.array(zod.string()),
+        rawText: zod.string(),
       })
       .nullish(),
     urlscan: zod
@@ -594,20 +482,6 @@ export const GetScanHistoryEntryResponse = zod.object({
       )
       .nullish(),
     abuseIpDbConfigured: zod.boolean().optional(),
-    censys: zod
-      .object({
-        total: zod.number(),
-        hosts: zod.array(
-          zod.object({
-            ip: zod.string(),
-            services: zod.array(zod.string()),
-            location: zod.string().optional(),
-            autonomousSystem: zod.string().optional(),
-          }),
-        ),
-      })
-      .nullish(),
-    censysConfigured: zod.boolean().optional(),
     shodan: zod
       .array(
         zod.object({

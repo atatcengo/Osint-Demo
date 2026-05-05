@@ -6,29 +6,24 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AbuseIpInfo } from "./abuseIpInfo";
-import type { CensysInfo } from "./censysInfo";
 import type { DnsRecords } from "./dnsRecords";
-import type { RdapInfo } from "./rdapInfo";
 import type { ScanResultErrors } from "./scanResultErrors";
 import type { ShodanHostInfo } from "./shodanHostInfo";
 import type { SubdomainEntry } from "./subdomainEntry";
 import type { UrlscanInfo } from "./urlscanInfo";
 import type { VirusTotalInfo } from "./virusTotalInfo";
-import type { WaybackInfo } from "./waybackInfo";
+import type { WhoisInfo } from "./whoisInfo";
 
 export interface ScanResult {
   domain: string;
   timestamp: string;
   subdomains: SubdomainEntry[];
   dns: DnsRecords;
-  rdap?: RdapInfo | null;
-  wayback?: WaybackInfo | null;
+  whois?: WhoisInfo | null;
   urlscan?: UrlscanInfo | null;
   urlscanConfigured?: boolean;
   abuseIpDb?: AbuseIpInfo[] | null;
   abuseIpDbConfigured?: boolean;
-  censys?: CensysInfo | null;
-  censysConfigured?: boolean;
   shodan?: ShodanHostInfo[] | null;
   shodanConfigured: boolean;
   virusTotal?: VirusTotalInfo | null;

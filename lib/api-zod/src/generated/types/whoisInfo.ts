@@ -6,12 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface RdapInfo {
+export interface WhoisInfo {
+  server?: string;
   registrar?: string;
-  registrationDate?: string;
+  creationDate?: string;
   expirationDate?: string;
   updatedDate?: string;
-  status: string[];
-  nameservers: string[];
-  abuseContacts: string[];
+  statuses: string[];
+  nameServers: string[];
+  rawText: string;
 }

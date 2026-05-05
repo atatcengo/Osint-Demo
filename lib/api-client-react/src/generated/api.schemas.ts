@@ -14,7 +14,6 @@ export interface OsintConfig {
   virusTotalConfigured: boolean;
   urlscanConfigured: boolean;
   abuseIpDbConfigured: boolean;
-  censysConfigured: boolean;
 }
 
 export interface ScanRequest {
@@ -56,25 +55,15 @@ export interface VirusTotalInfo {
   categories?: VirusTotalInfoCategories;
 }
 
-export interface RdapInfo {
+export interface WhoisInfo {
+  server?: string;
   registrar?: string;
-  registrationDate?: string;
+  creationDate?: string;
   expirationDate?: string;
   updatedDate?: string;
-  status: string[];
-  nameservers: string[];
-  abuseContacts: string[];
-}
-
-export interface WaybackCapture {
-  url: string;
-  timestamp: string;
-  statusCode?: string;
-  mimeType?: string;
-}
-
-export interface WaybackInfo {
-  captures: WaybackCapture[];
+  statuses: string[];
+  nameServers: string[];
+  rawText: string;
 }
 
 export interface UrlscanResult {
@@ -103,18 +92,6 @@ export interface AbuseIpInfo {
   lastReportedAt?: string;
 }
 
-export interface CensysHostInfo {
-  ip: string;
-  services: string[];
-  location?: string;
-  autonomousSystem?: string;
-}
-
-export interface CensysInfo {
-  total: number;
-  hosts: CensysHostInfo[];
-}
-
 export type ScanResultErrors = { [key: string]: string };
 
 export interface ScanResult {
@@ -122,14 +99,11 @@ export interface ScanResult {
   timestamp: string;
   subdomains: SubdomainEntry[];
   dns: DnsRecords;
-  rdap?: RdapInfo | null;
-  wayback?: WaybackInfo | null;
+  whois?: WhoisInfo | null;
   urlscan?: UrlscanInfo | null;
   urlscanConfigured?: boolean;
   abuseIpDb?: AbuseIpInfo[] | null;
   abuseIpDbConfigured?: boolean;
-  censys?: CensysInfo | null;
-  censysConfigured?: boolean;
   shodan?: ShodanHostInfo[] | null;
   shodanConfigured: boolean;
   virusTotal?: VirusTotalInfo | null;

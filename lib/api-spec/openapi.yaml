@@ -195,14 +195,11 @@ components:
           type: boolean
         abuseIpDbConfigured:
           type: boolean
-        censysConfigured:
-          type: boolean
       required:
         - shodanConfigured
         - virusTotalConfigured
         - urlscanConfigured
         - abuseIpDbConfigured
-        - censysConfigured
     ScanRequest:
       type: object
       properties:
@@ -302,56 +299,33 @@ components:
         - malicious
         - undetected
         - reputation
-    RdapInfo:
+    WhoisInfo:
       type: object
       properties:
+        server:
+          type: string
         registrar:
           type: string
-        registrationDate:
+        creationDate:
           type: string
         expirationDate:
           type: string
         updatedDate:
           type: string
-        status:
+        statuses:
           type: array
           items:
             type: string
-        nameservers:
+        nameServers:
           type: array
           items:
             type: string
-        abuseContacts:
-          type: array
-          items:
-            type: string
-      required:
-        - status
-        - nameservers
-        - abuseContacts
-    WaybackCapture:
-      type: object
-      properties:
-        url:
-          type: string
-        timestamp:
-          type: string
-        statusCode:
-          type: string
-        mimeType:
+        rawText:
           type: string
       required:
-        - url
-        - timestamp
-    WaybackInfo:
-      type: object
-      properties:
-        captures:
-          type: array
-          items:
-            $ref: "#/components/schemas/WaybackCapture"
-      required:
-        - captures
+        - statuses
+        - nameServers
+        - rawText
     UrlscanResult:
       type: object
       properties:
@@ -406,34 +380,6 @@ components:
         - ip
         - abuseConfidenceScore
         - totalReports
-    CensysHostInfo:
-      type: object
-      properties:
-        ip:
-          type: string
-        services:
-          type: array
-          items:
-            type: string
-        location:
-          type: string
-        autonomousSystem:
-          type: string
-      required:
-        - ip
-        - services
-    CensysInfo:
-      type: object
-      properties:
-        total:
-          type: integer
-        hosts:
-          type: array
-          items:
-            $ref: "#/components/schemas/CensysHostInfo"
-      required:
-        - total
-        - hosts
     ScanResult:
       type: object
       properties:
@@ -447,14 +393,10 @@ components:
             $ref: "#/components/schemas/SubdomainEntry"
         dns:
           $ref: "#/components/schemas/DnsRecords"
-        rdap:
+        whois:
           nullable: true
           oneOf:
-            - $ref: "#/components/schemas/RdapInfo"
-        wayback:
-          nullable: true
-          oneOf:
-            - $ref: "#/components/schemas/WaybackInfo"
+            - $ref: "#/components/schemas/WhoisInfo"
         urlscan:
           nullable: true
           oneOf:
@@ -467,12 +409,6 @@ components:
           items:
             $ref: "#/components/schemas/AbuseIpInfo"
         abuseIpDbConfigured:
-          type: boolean
-        censys:
-          nullable: true
-          oneOf:
-            - $ref: "#/components/schemas/CensysInfo"
-        censysConfigured:
           type: boolean
         shodan:
           type: array
