@@ -826,7 +826,7 @@ export default function Home() {
               <CardHeader className="pb-3 border-b border-border/50 bg-secondary/20">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Database className="w-5 h-5 text-primary" />
-                  Subdomains (crt.sh)
+                  Subdomains
                   <Badge
                     variant="secondary"
                     className="ml-2 bg-primary/10 text-primary"

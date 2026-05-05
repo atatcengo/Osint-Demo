@@ -129,6 +129,48 @@ function validate_domain(domain: string): boolean {
   return domainRegex.test(domain);
 }
 
+function normalize_subdomain_name(
+  name: string,
+  domain: string,
+): string | undefined {
+  const normalized = name
+    .trim()
+    .toLowerCase()
+    .replace(/^\*\./, "")
+    .replace(/\.$/, "");
+
+  if (!normalized.endsWith(`.${domain}`) || normalized === domain) {
+    return undefined;
+  }
+
+  if (
+    !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/.test(
+      normalized,
+    )
+  ) {
+    return undefined;
+  }
+
+  return normalized;
+}
+
+function merge_subdomains(
+  ...sources: Array<Array<{ name: string }>>
+): { name: string }[] {
+  const seen = new Set<string>();
+  const subdomains: { name: string }[] = [];
+
+  for (const source of sources) {
+    for (const subdomain of source) {
+      if (seen.has(subdomain.name)) continue;
+      seen.add(subdomain.name);
+      subdomains.push(subdomain);
+    }
+  }
+
+  return subdomains.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 // Query crt.sh for subdomains via certificate transparency logs
 async function get_crtsh_subdomains(
   domain: string,
@@ -148,8 +190,8 @@ async function get_crtsh_subdomains(
     // name_value can contain multiple lines with wildcards
     const names = entry.name_value
       .split(/\n/)
-      .map((n: string) => n.trim().replace(/^\*\./, ""))
-      .filter((n: string) => n && n !== domain);
+      .map((n: string) => normalize_subdomain_name(n, domain))
+      .filter((n): n is string => Boolean(n));
     for (const name of names) {
       if (!seen.has(name)) {
         seen.add(name);
@@ -158,6 +200,98 @@ async function get_crtsh_subdomains(
     }
   }
   return subdomains;
+}
+
+async function get_commoncrawl_subdomains(
+  domain: string,
+): Promise<{ name: string }[]> {
+  const indexResp = await fetch("https://index.commoncrawl.org/collinfo.json", {
+    headers: { "User-Agent": "OSINT-Demo/1.0 (educational)" },
+    signal: AbortSignal.timeout(8000),
+  });
+
+  if (!indexResp.ok) {
+    throw new Error(`Common Crawl index list returned ${indexResp.status}`);
+  }
+
+  const indexes = (await indexResp.json()) as Array<{
+    id?: string;
+    "cdx-api"?: string;
+  }>;
+  const latestIndexUrl = indexes[0]?.["cdx-api"];
+
+  if (!latestIndexUrl) {
+    throw new Error("Common Crawl index list did not include a CDX API URL");
+  }
+
+  const queryUrl = new URL(latestIndexUrl);
+  queryUrl.search = new URLSearchParams({
+    url: `*.${domain}/*`,
+    output: "json",
+    fl: "url",
+    filter: "status:200",
+    collapse: "urlkey",
+    limit: "100",
+  }).toString();
+
+  const resp = await fetch(queryUrl, {
+    headers: { "User-Agent": "OSINT-Demo/1.0 (educational)" },
+    signal: AbortSignal.timeout(12000),
+  });
+
+  if (!resp.ok) {
+    throw new Error(`Common Crawl CDX returned ${resp.status}`);
+  }
+
+  const seen = new Set<string>();
+  const subdomains: { name: string }[] = [];
+  const text = await resp.text();
+
+  for (const line of text.split(/\n/)) {
+    if (!line.trim()) continue;
+    try {
+      const item = JSON.parse(line) as { url?: string };
+      if (!item.url) continue;
+      const hostname = new URL(item.url).hostname;
+      const name = normalize_subdomain_name(hostname, domain);
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      subdomains.push({ name });
+    } catch {
+      // Skip malformed CDX lines and invalid URLs.
+    }
+  }
+
+  return subdomains;
+}
+
+async function get_passive_subdomains(
+  domain: string,
+): Promise<{ name: string }[]> {
+  const [crtshResult, commonCrawlResult] = await Promise.allSettled([
+    get_crtsh_subdomains(domain),
+    get_commoncrawl_subdomains(domain),
+  ]);
+
+  const fulfilled = [crtshResult, commonCrawlResult].filter(
+    (result): result is PromiseFulfilledResult<{ name: string }[]> =>
+      result.status === "fulfilled",
+  );
+
+  if (fulfilled.length > 0) {
+    return merge_subdomains(...fulfilled.map((result) => result.value));
+  }
+
+  throw new Error(
+    [crtshResult, commonCrawlResult]
+      .map((result) =>
+        result.status === "rejected"
+          ? result.reason?.message ?? "subdomain source failed"
+          : undefined,
+      )
+      .filter(Boolean)
+      .join("; "),
+  );
 }
 
 // Resolve DNS records using Node.js dns/promises
@@ -695,7 +829,7 @@ function generate_markdown_report(result: ScanResultForReport): string {
     `\n> **Ethical Note:** This report was generated using passive OSINT sources only. No active scanning or exploitation was performed.`,
   );
 
-  lines.push(`\n## Subdomains (via crt.sh)`);
+  lines.push(`\n## Subdomains (passive sources)`);
   if (result.subdomains.length === 0) {
     lines.push(`No subdomains found.`);
   } else {
@@ -927,7 +1061,7 @@ router.post("/osint/scan", async (req, res) => {
     whoisResult,
     urlscanResult,
   ] = await Promise.allSettled([
-    get_crtsh_subdomains(domain),
+    get_passive_subdomains(domain),
     get_dns_records(domain),
     get_dns_security_info(domain),
     get_whois_info(domain),
