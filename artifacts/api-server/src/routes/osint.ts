@@ -12,6 +12,17 @@ type DnsRecords = {
   NS: string[];
 };
 
+type DnsSecurityInfo = {
+  spf: string[];
+  dmarc?: string;
+  dmarcPolicy?: string;
+  caa: string[];
+  dnssec: boolean;
+  dnssecRecords: string[];
+  mtaSts?: string;
+  tlsRpt?: string;
+};
+
 type ShodanHostInfo = {
   ip: string;
   ports: number[];
@@ -74,6 +85,7 @@ type ScanResultForReport = {
   timestamp: string;
   subdomains: { name: string }[];
   dns: DnsRecords;
+  dnsSecurity?: DnsSecurityInfo | null;
   whois?: WhoisInfo | null;
   urlscan?: UrlscanInfo | null;
   urlscanConfigured?: boolean;
@@ -178,6 +190,92 @@ async function get_dns_records(domain: string): Promise<{
   }
 
   return results;
+}
+
+async function resolve_txt_records(name: string): Promise<string[]> {
+  try {
+    const records = await dns.resolveTxt(name);
+    return records.map((parts) => parts.join(""));
+  } catch {
+    return [];
+  }
+}
+
+async function resolve_caa_records(domain: string): Promise<string[]> {
+  try {
+    const records = (await dns.resolveCaa(domain)) as unknown as Array<
+      Record<string, unknown>
+    >;
+    return records.flatMap((record) =>
+      Object.entries(record)
+        .filter(([key, value]) => key !== "critical" && typeof value === "string")
+        .map(([key, value]) => `${key}=${value}`),
+    );
+  } catch {
+    return [];
+  }
+}
+
+async function resolve_ds_records(domain: string): Promise<string[]> {
+  const params = new URLSearchParams({ name: domain, type: "DS" });
+  try {
+    const resp = await fetch(`https://cloudflare-dns.com/dns-query?${params}`, {
+      headers: {
+        Accept: "application/dns-json",
+        "User-Agent": "OSINT-Demo/1.0 (educational)",
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!resp.ok) return [];
+
+    const data = (await resp.json()) as {
+      Answer?: Array<{ data?: string }>;
+    };
+
+    return (
+      data.Answer?.map((answer) => answer.data).filter(
+        (value): value is string => Boolean(value),
+      ) ?? []
+    );
+  } catch {
+    return [];
+  }
+}
+
+function find_txt_record(records: string[], prefix: string): string | undefined {
+  return records.find((record) =>
+    record.toLowerCase().startsWith(prefix.toLowerCase()),
+  );
+}
+
+function get_dmarc_policy(record: string | undefined): string | undefined {
+  return record?.match(/(?:^|;)\s*p=([^;]+)/i)?.[1]?.trim().toLowerCase();
+}
+
+async function get_dns_security_info(domain: string): Promise<DnsSecurityInfo> {
+  const [txtRecords, dmarcRecords, caa, dnssecRecords, mtaStsRecords, tlsRptRecords] =
+    await Promise.all([
+      resolve_txt_records(domain),
+      resolve_txt_records(`_dmarc.${domain}`),
+      resolve_caa_records(domain),
+      resolve_ds_records(domain),
+      resolve_txt_records(`_mta-sts.${domain}`),
+      resolve_txt_records(`_smtp._tls.${domain}`),
+    ]);
+
+  const dmarc = find_txt_record(dmarcRecords, "v=DMARC1");
+
+  return {
+    spf: txtRecords.filter((record) => /^v=spf1\b/i.test(record)),
+    dmarc,
+    dmarcPolicy: get_dmarc_policy(dmarc),
+    caa,
+    dnssec: dnssecRecords.length > 0,
+    dnssecRecords,
+    mtaSts: find_txt_record(mtaStsRecords, "v=STSv1"),
+    tlsRpt: find_txt_record(tlsRptRecords, "v=TLSRPTv1"),
+  };
 }
 
 function query_whois_server(server: string, query: string): Promise<string> {
@@ -598,6 +696,33 @@ function generate_markdown_report(result: ScanResultForReport): string {
     for (const r of result.dns.NS) lines.push(`| \`${r}\` |`);
   }
 
+  lines.push(`\n## DNS Security Posture`);
+  if (!result.dnsSecurity) {
+    lines.push(`No DNS security data available.`);
+  } else {
+    const security = result.dnsSecurity;
+    lines.push(`| Control | Status | Details |`);
+    lines.push(`|---------|--------|---------|`);
+    lines.push(
+      `| SPF | ${security.spf.length > 0 ? "Present" : "Missing"} | ${security.spf.join("<br>") || "-"} |`,
+    );
+    lines.push(
+      `| DMARC | ${security.dmarc ? "Present" : "Missing"} | ${security.dmarcPolicy ? `Policy: ${security.dmarcPolicy}` : "-"} |`,
+    );
+    lines.push(
+      `| CAA | ${security.caa.length > 0 ? "Present" : "Missing"} | ${security.caa.join("<br>") || "-"} |`,
+    );
+    lines.push(
+      `| DNSSEC DS | ${security.dnssec ? "Present" : "Missing"} | ${security.dnssecRecords.length} record(s) |`,
+    );
+    lines.push(
+      `| MTA-STS | ${security.mtaSts ? "Present" : "Missing"} | ${security.mtaSts ?? "-"} |`,
+    );
+    lines.push(
+      `| TLS-RPT | ${security.tlsRpt ? "Present" : "Missing"} | ${security.tlsRpt ?? "-"} |`,
+    );
+  }
+
   lines.push(`\n## WHOIS Registration`);
   if (!result.whois) {
     lines.push(`No WHOIS data available.`);
@@ -731,11 +856,13 @@ router.post("/osint/scan", async (req, res) => {
   const [
     subdomainsResult,
     dnsResult,
+    dnsSecurityResult,
     whoisResult,
     urlscanResult,
   ] = await Promise.allSettled([
     get_crtsh_subdomains(domain),
     get_dns_records(domain),
+    get_dns_security_info(domain),
     get_whois_info(domain),
     get_urlscan_info(domain, process.env["URLSCAN_API_KEY"]),
   ]);
@@ -753,6 +880,13 @@ router.post("/osint/scan", async (req, res) => {
         { A: [], MX: [], TXT: [], NS: [] });
 
   const resolvedIPs = dns.A;
+
+  const dnsSecurity =
+    dnsSecurityResult.status === "fulfilled"
+      ? dnsSecurityResult.value
+      : ((errors["dnsSecurity"] =
+          dnsSecurityResult.reason?.message ?? "Failed"),
+        null);
 
   const whois =
     whoisResult.status === "fulfilled"
@@ -833,6 +967,7 @@ router.post("/osint/scan", async (req, res) => {
     timestamp,
     subdomains,
     dns,
+    dnsSecurity,
     whois,
     urlscan,
     urlscanConfigured,

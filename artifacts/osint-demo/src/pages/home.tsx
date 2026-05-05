@@ -6,6 +6,7 @@ import {
   Search,
   Download,
   ShieldAlert,
+  ShieldCheck,
   Activity,
   AlertCircle,
   CheckCircle2,
@@ -45,7 +46,6 @@ import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -123,6 +123,24 @@ export default function Home() {
 
   const runScan = useRunOsintScan();
   const generateReport = useGenerateOsintReport();
+
+  const renderStatusBadge = (present: boolean) => (
+    <Badge
+      variant="outline"
+      className={
+        present
+          ? "border-emerald-500/30 text-emerald-400"
+          : "border-muted-foreground/30 text-muted-foreground"
+      }
+    >
+      {present ? (
+        <CheckCircle2 className="w-3 h-3 mr-1" />
+      ) : (
+        <XCircle className="w-3 h-3 mr-1" />
+      )}
+      {present ? "Present" : "Missing"}
+    </Badge>
+  );
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setScanResult(null);
@@ -433,6 +451,100 @@ export default function Home() {
                       )}
                     </div>
                   ))}
+                </CardContent>
+              </Card>
+
+              {/* DNS Security */}
+              <Card className="border-primary/20">
+                <CardHeader className="pb-3 border-b border-border/50 bg-secondary/20">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <ShieldCheck className="w-5 h-5 text-primary" />
+                    DNS Security Posture
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  {scanResult.dnsSecurity ? (
+                    <div className="space-y-3 text-sm">
+                      <div className="rounded border border-border/50 bg-secondary/10 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-bold text-foreground">SPF</span>
+                          {renderStatusBadge(
+                            scanResult.dnsSecurity.spf.length > 0,
+                          )}
+                        </div>
+                        {scanResult.dnsSecurity.spf.length > 0 && (
+                          <div className="mt-2 text-muted-foreground break-all">
+                            {scanResult.dnsSecurity.spf.join(" ")}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="rounded border border-border/50 bg-secondary/10 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-bold text-foreground">
+                            DMARC
+                          </span>
+                          {renderStatusBadge(Boolean(scanResult.dnsSecurity.dmarc))}
+                        </div>
+                        {scanResult.dnsSecurity.dmarc && (
+                          <div className="mt-2 space-y-1 text-muted-foreground break-all">
+                            {scanResult.dnsSecurity.dmarcPolicy && (
+                              <div>
+                                Policy:{" "}
+                                <span className="text-primary">
+                                  {scanResult.dnsSecurity.dmarcPolicy}
+                                </span>
+                              </div>
+                            )}
+                            <div>{scanResult.dnsSecurity.dmarc}</div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="rounded border border-border/50 bg-secondary/10 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-bold text-foreground">CAA</span>
+                          {renderStatusBadge(
+                            scanResult.dnsSecurity.caa.length > 0,
+                          )}
+                        </div>
+                        {scanResult.dnsSecurity.caa.length > 0 && (
+                          <div className="mt-2 text-muted-foreground break-all">
+                            {scanResult.dnsSecurity.caa.join(", ")}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="rounded border border-border/50 bg-secondary/10 p-3">
+                          <div className="mb-2 font-bold text-foreground">
+                            DNSSEC
+                          </div>
+                          {renderStatusBadge(scanResult.dnsSecurity.dnssec)}
+                        </div>
+                        <div className="rounded border border-border/50 bg-secondary/10 p-3">
+                          <div className="mb-2 font-bold text-foreground">
+                            MTA-STS
+                          </div>
+                          {renderStatusBadge(
+                            Boolean(scanResult.dnsSecurity.mtaSts),
+                          )}
+                        </div>
+                        <div className="rounded border border-border/50 bg-secondary/10 p-3">
+                          <div className="mb-2 font-bold text-foreground">
+                            TLS-RPT
+                          </div>
+                          {renderStatusBadge(
+                            Boolean(scanResult.dnsSecurity.tlsRpt),
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground py-4 text-center">
+                      No DNS security data returned.
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 

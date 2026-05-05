@@ -32,6 +32,17 @@ export interface DnsRecords {
   NS: string[];
 }
 
+export interface DnsSecurityInfo {
+  spf: string[];
+  dmarc?: string;
+  dmarcPolicy?: string;
+  caa: string[];
+  dnssec: boolean;
+  dnssecRecords: string[];
+  mtaSts?: string;
+  tlsRpt?: string;
+}
+
 export interface ShodanHostInfo {
   ip: string;
   ports: number[];
@@ -99,6 +110,7 @@ export interface ScanResult {
   timestamp: string;
   subdomains: SubdomainEntry[];
   dns: DnsRecords;
+  dnsSecurity?: DnsSecurityInfo | null;
   whois?: WhoisInfo | null;
   urlscan?: UrlscanInfo | null;
   urlscanConfigured?: boolean;

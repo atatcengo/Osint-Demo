@@ -7,6 +7,7 @@
  */
 import type { AbuseIpInfo } from "./abuseIpInfo";
 import type { DnsRecords } from "./dnsRecords";
+import type { DnsSecurityInfo } from "./dnsSecurityInfo";
 import type { ScanResultErrors } from "./scanResultErrors";
 import type { ShodanHostInfo } from "./shodanHostInfo";
 import type { SubdomainEntry } from "./subdomainEntry";
@@ -19,6 +20,7 @@ export interface ScanResult {
   timestamp: string;
   subdomains: SubdomainEntry[];
   dns: DnsRecords;
+  dnsSecurity?: DnsSecurityInfo | null;
   whois?: WhoisInfo | null;
   urlscan?: UrlscanInfo | null;
   urlscanConfigured?: boolean;

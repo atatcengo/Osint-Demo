@@ -49,6 +49,18 @@ export const RunOsintScanResponse = zod.object({
     TXT: zod.array(zod.string()),
     NS: zod.array(zod.string()),
   }),
+  dnsSecurity: zod
+    .object({
+      spf: zod.array(zod.string()),
+      dmarc: zod.string().optional(),
+      dmarcPolicy: zod.string().optional(),
+      caa: zod.array(zod.string()),
+      dnssec: zod.boolean(),
+      dnssecRecords: zod.array(zod.string()),
+      mtaSts: zod.string().optional(),
+      tlsRpt: zod.string().optional(),
+    })
+    .nullish(),
   whois: zod
     .object({
       server: zod.string().optional(),
@@ -141,6 +153,18 @@ export const GenerateOsintReportBody = zod.object({
     TXT: zod.array(zod.string()),
     NS: zod.array(zod.string()),
   }),
+  dnsSecurity: zod
+    .object({
+      spf: zod.array(zod.string()),
+      dmarc: zod.string().optional(),
+      dmarcPolicy: zod.string().optional(),
+      caa: zod.array(zod.string()),
+      dnssec: zod.boolean(),
+      dnssecRecords: zod.array(zod.string()),
+      mtaSts: zod.string().optional(),
+      tlsRpt: zod.string().optional(),
+    })
+    .nullish(),
   whois: zod
     .object({
       server: zod.string().optional(),
@@ -242,6 +266,18 @@ export const ListScanHistoryResponseItem = zod.object({
       TXT: zod.array(zod.string()),
       NS: zod.array(zod.string()),
     }),
+    dnsSecurity: zod
+      .object({
+        spf: zod.array(zod.string()),
+        dmarc: zod.string().optional(),
+        dmarcPolicy: zod.string().optional(),
+        caa: zod.array(zod.string()),
+        dnssec: zod.boolean(),
+        dnssecRecords: zod.array(zod.string()),
+        mtaSts: zod.string().optional(),
+        tlsRpt: zod.string().optional(),
+      })
+      .nullish(),
     whois: zod
       .object({
         server: zod.string().optional(),
@@ -338,6 +374,18 @@ export const SaveScanResultBody = zod.object({
     TXT: zod.array(zod.string()),
     NS: zod.array(zod.string()),
   }),
+  dnsSecurity: zod
+    .object({
+      spf: zod.array(zod.string()),
+      dmarc: zod.string().optional(),
+      dmarcPolicy: zod.string().optional(),
+      caa: zod.array(zod.string()),
+      dnssec: zod.boolean(),
+      dnssecRecords: zod.array(zod.string()),
+      mtaSts: zod.string().optional(),
+      tlsRpt: zod.string().optional(),
+    })
+    .nullish(),
   whois: zod
     .object({
       server: zod.string().optional(),
@@ -438,6 +486,18 @@ export const GetScanHistoryEntryResponse = zod.object({
       TXT: zod.array(zod.string()),
       NS: zod.array(zod.string()),
     }),
+    dnsSecurity: zod
+      .object({
+        spf: zod.array(zod.string()),
+        dmarc: zod.string().optional(),
+        dmarcPolicy: zod.string().optional(),
+        caa: zod.array(zod.string()),
+        dnssec: zod.boolean(),
+        dnssecRecords: zod.array(zod.string()),
+        mtaSts: zod.string().optional(),
+        tlsRpt: zod.string().optional(),
+      })
+      .nullish(),
     whois: zod
       .object({
         server: zod.string().optional(),

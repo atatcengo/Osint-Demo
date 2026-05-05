@@ -8,6 +8,7 @@
 
 export * from "./abuseIpInfo";
 export * from "./dnsRecords";
+export * from "./dnsSecurityInfo";
 export * from "./errorResponse";
 export * from "./healthStatus";
 export * from "./markdownReport";

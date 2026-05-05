@@ -239,6 +239,36 @@ components:
         - MX
         - TXT
         - NS
+    DnsSecurityInfo:
+      type: object
+      properties:
+        spf:
+          type: array
+          items:
+            type: string
+        dmarc:
+          type: string
+        dmarcPolicy:
+          type: string
+        caa:
+          type: array
+          items:
+            type: string
+        dnssec:
+          type: boolean
+        dnssecRecords:
+          type: array
+          items:
+            type: string
+        mtaSts:
+          type: string
+        tlsRpt:
+          type: string
+      required:
+        - spf
+        - caa
+        - dnssec
+        - dnssecRecords
     ShodanHostInfo:
       type: object
       properties:
@@ -393,6 +423,10 @@ components:
             $ref: "#/components/schemas/SubdomainEntry"
         dns:
           $ref: "#/components/schemas/DnsRecords"
+        dnsSecurity:
+          nullable: true
+          oneOf:
+            - $ref: "#/components/schemas/DnsSecurityInfo"
         whois:
           nullable: true
           oneOf:
