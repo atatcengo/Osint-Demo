@@ -24,7 +24,6 @@ export const GetOsintConfigResponse = zod.object({
   virusTotalConfigured: zod.boolean(),
   urlscanConfigured: zod.boolean(),
   abuseIpDbConfigured: zod.boolean(),
-  securityTrailsConfigured: zod.boolean(),
   censysConfigured: zod.boolean(),
 });
 
@@ -106,12 +105,6 @@ export const RunOsintScanResponse = zod.object({
     )
     .nullish(),
   abuseIpDbConfigured: zod.boolean().optional(),
-  securityTrails: zod
-    .object({
-      subdomains: zod.array(zod.string()),
-    })
-    .nullish(),
-  securityTrailsConfigured: zod.boolean().optional(),
   censys: zod
     .object({
       total: zod.number(),
@@ -229,12 +222,6 @@ export const GenerateOsintReportBody = zod.object({
     )
     .nullish(),
   abuseIpDbConfigured: zod.boolean().optional(),
-  securityTrails: zod
-    .object({
-      subdomains: zod.array(zod.string()),
-    })
-    .nullish(),
-  securityTrailsConfigured: zod.boolean().optional(),
   censys: zod
     .object({
       total: zod.number(),
@@ -361,12 +348,6 @@ export const ListScanHistoryResponseItem = zod.object({
       )
       .nullish(),
     abuseIpDbConfigured: zod.boolean().optional(),
-    securityTrails: zod
-      .object({
-        subdomains: zod.array(zod.string()),
-      })
-      .nullish(),
-    securityTrailsConfigured: zod.boolean().optional(),
     censys: zod
       .object({
         total: zod.number(),
@@ -488,12 +469,6 @@ export const SaveScanResultBody = zod.object({
     )
     .nullish(),
   abuseIpDbConfigured: zod.boolean().optional(),
-  securityTrails: zod
-    .object({
-      subdomains: zod.array(zod.string()),
-    })
-    .nullish(),
-  securityTrailsConfigured: zod.boolean().optional(),
   censys: zod
     .object({
       total: zod.number(),
@@ -619,12 +594,6 @@ export const GetScanHistoryEntryResponse = zod.object({
       )
       .nullish(),
     abuseIpDbConfigured: zod.boolean().optional(),
-    securityTrails: zod
-      .object({
-        subdomains: zod.array(zod.string()),
-      })
-      .nullish(),
-    securityTrailsConfigured: zod.boolean().optional(),
     censys: zod
       .object({
         total: zod.number(),

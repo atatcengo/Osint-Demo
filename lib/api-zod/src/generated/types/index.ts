@@ -19,7 +19,6 @@ export * from "./scanHistoryEntry";
 export * from "./scanRequest";
 export * from "./scanResult";
 export * from "./scanResultErrors";
-export * from "./securityTrailsInfo";
 export * from "./shodanHostInfo";
 export * from "./subdomainEntry";
 export * from "./urlscanInfo";

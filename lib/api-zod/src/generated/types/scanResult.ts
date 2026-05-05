@@ -10,7 +10,6 @@ import type { CensysInfo } from "./censysInfo";
 import type { DnsRecords } from "./dnsRecords";
 import type { RdapInfo } from "./rdapInfo";
 import type { ScanResultErrors } from "./scanResultErrors";
-import type { SecurityTrailsInfo } from "./securityTrailsInfo";
 import type { ShodanHostInfo } from "./shodanHostInfo";
 import type { SubdomainEntry } from "./subdomainEntry";
 import type { UrlscanInfo } from "./urlscanInfo";
@@ -28,8 +27,6 @@ export interface ScanResult {
   urlscanConfigured?: boolean;
   abuseIpDb?: AbuseIpInfo[] | null;
   abuseIpDbConfigured?: boolean;
-  securityTrails?: SecurityTrailsInfo | null;
-  securityTrailsConfigured?: boolean;
   censys?: CensysInfo | null;
   censysConfigured?: boolean;
   shodan?: ShodanHostInfo[] | null;

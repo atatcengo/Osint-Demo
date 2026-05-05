@@ -195,8 +195,6 @@ components:
           type: boolean
         abuseIpDbConfigured:
           type: boolean
-        securityTrailsConfigured:
-          type: boolean
         censysConfigured:
           type: boolean
       required:
@@ -204,7 +202,6 @@ components:
         - virusTotalConfigured
         - urlscanConfigured
         - abuseIpDbConfigured
-        - securityTrailsConfigured
         - censysConfigured
     ScanRequest:
       type: object
@@ -409,15 +406,6 @@ components:
         - ip
         - abuseConfidenceScore
         - totalReports
-    SecurityTrailsInfo:
-      type: object
-      properties:
-        subdomains:
-          type: array
-          items:
-            type: string
-      required:
-        - subdomains
     CensysHostInfo:
       type: object
       properties:
@@ -479,12 +467,6 @@ components:
           items:
             $ref: "#/components/schemas/AbuseIpInfo"
         abuseIpDbConfigured:
-          type: boolean
-        securityTrails:
-          nullable: true
-          oneOf:
-            - $ref: "#/components/schemas/SecurityTrailsInfo"
-        securityTrailsConfigured:
           type: boolean
         censys:
           nullable: true

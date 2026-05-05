@@ -20,7 +20,6 @@ import {
   Archive,
   ExternalLink,
   Radar,
-  Network,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -754,48 +753,6 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* SecurityTrails */}
-              <Card className="border-primary/20">
-                <CardHeader className="pb-3 border-b border-border/50 bg-secondary/20">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Network className="w-5 h-5 text-primary" />
-                    SecurityTrails Subdomains
-                    <Badge
-                      variant="secondary"
-                      className="ml-2 bg-primary/10 text-primary"
-                    >
-                      {scanResult.securityTrails?.subdomains.length ?? 0} found
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  {!scanResult.securityTrailsConfigured ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                      <Key className="w-8 h-8 mb-2 opacity-50" />
-                      <p>API Key Not Configured</p>
-                    </div>
-                  ) : scanResult.securityTrails &&
-                    scanResult.securityTrails.subdomains.length > 0 ? (
-                    <div className="max-h-64 overflow-y-auto space-y-1">
-                      {scanResult.securityTrails.subdomains
-                        .slice(0, 50)
-                        .map((subdomain) => (
-                          <div
-                            key={subdomain}
-                            className="text-sm text-muted-foreground break-all"
-                          >
-                            {subdomain}
-                          </div>
-                        ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground py-4 text-center">
-                      No SecurityTrails data returned.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-
               {/* Censys */}
               <Card className="border-primary/20">
                 <CardHeader className="pb-3 border-b border-border/50 bg-secondary/20">

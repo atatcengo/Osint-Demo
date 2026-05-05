@@ -69,10 +69,6 @@ type AbuseIpInfo = {
   lastReportedAt?: string;
 };
 
-type SecurityTrailsInfo = {
-  subdomains: string[];
-};
-
 type CensysHostInfo = {
   ip: string;
   services: string[];
@@ -105,8 +101,6 @@ type ScanResultForReport = {
   urlscanConfigured?: boolean;
   abuseIpDb?: AbuseIpInfo[] | null;
   abuseIpDbConfigured?: boolean;
-  securityTrails?: SecurityTrailsInfo | null;
-  securityTrailsConfigured?: boolean;
   censys?: CensysInfo | null;
   censysConfigured?: boolean;
   shodan?: ShodanHostInfo[] | null;
@@ -616,32 +610,6 @@ async function get_abuseipdb_info(
   return results;
 }
 
-async function get_securitytrails_info(
-  domain: string,
-  apiKey: string,
-): Promise<SecurityTrailsInfo> {
-  const resp = await fetch(
-    `https://api.securitytrails.com/v1/domain/${encodeURIComponent(domain)}/subdomains?children_only=false`,
-    {
-      headers: {
-        APIKEY: apiKey,
-        "User-Agent": "OSINT-Demo/1.0 (educational)",
-      },
-      signal: AbortSignal.timeout(12000),
-    },
-  );
-
-  if (!resp.ok) {
-    throw new Error(`SecurityTrails API error: ${resp.status}`);
-  }
-
-  const data = (await resp.json()) as { subdomains?: string[] };
-  return {
-    subdomains:
-      data.subdomains?.map((sub) => `${sub}.${domain}`).slice(0, 100) ?? [],
-  };
-}
-
 async function get_censys_info(
   domain: string,
   apiId: string,
@@ -832,20 +800,6 @@ function generate_markdown_report(result: ScanResultForReport): string {
     }
   }
 
-  lines.push(`\n## SecurityTrails`);
-  if (!result.securityTrailsConfigured) {
-    lines.push(`SecurityTrails API key not configured.`);
-  } else if (
-    !result.securityTrails ||
-    result.securityTrails.subdomains.length === 0
-  ) {
-    lines.push(`No SecurityTrails subdomains returned.`);
-  } else {
-    lines.push(
-      `Returned ${result.securityTrails.subdomains.length} subdomains.`,
-    );
-  }
-
   lines.push(`\n## Censys`);
   if (!result.censysConfigured) {
     lines.push(`Censys API credentials not configured.`);
@@ -919,7 +873,6 @@ router.get("/osint/config", (req, res) => {
     virusTotalConfigured: !!process.env["VIRUSTOTAL_API_KEY"],
     urlscanConfigured: !!process.env["URLSCAN_API_KEY"],
     abuseIpDbConfigured: !!process.env["ABUSEIPDB_API_KEY"],
-    securityTrailsConfigured: !!process.env["SECURITYTRAILS_API_KEY"],
     censysConfigured: !!(
       process.env["CENSYS_API_ID"] && process.env["CENSYS_API_SECRET"]
     ),
@@ -1005,19 +958,6 @@ router.post("/osint/scan", async (req, res) => {
     }
   }
 
-  const securityTrailsKey = process.env["SECURITYTRAILS_API_KEY"];
-  const securityTrailsConfigured = !!securityTrailsKey;
-  let securityTrails: SecurityTrailsInfo | null = null;
-
-  if (securityTrailsConfigured && securityTrailsKey) {
-    try {
-      securityTrails = await get_securitytrails_info(domain, securityTrailsKey);
-    } catch (err) {
-      errors["securityTrails"] =
-        err instanceof Error ? err.message : "SecurityTrails query failed";
-    }
-  }
-
   const censysApiId = process.env["CENSYS_API_ID"];
   const censysApiSecret = process.env["CENSYS_API_SECRET"];
   const censysConfigured = !!(censysApiId && censysApiSecret);
@@ -1093,8 +1033,6 @@ router.post("/osint/scan", async (req, res) => {
     urlscanConfigured,
     abuseIpDb,
     abuseIpDbConfigured,
-    securityTrails,
-    securityTrailsConfigured,
     censys,
     censysConfigured,
     shodan,

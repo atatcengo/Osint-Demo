@@ -14,7 +14,6 @@ export interface OsintConfig {
   virusTotalConfigured: boolean;
   urlscanConfigured: boolean;
   abuseIpDbConfigured: boolean;
-  securityTrailsConfigured: boolean;
   censysConfigured: boolean;
 }
 
@@ -104,10 +103,6 @@ export interface AbuseIpInfo {
   lastReportedAt?: string;
 }
 
-export interface SecurityTrailsInfo {
-  subdomains: string[];
-}
-
 export interface CensysHostInfo {
   ip: string;
   services: string[];
@@ -133,8 +128,6 @@ export interface ScanResult {
   urlscanConfigured?: boolean;
   abuseIpDb?: AbuseIpInfo[] | null;
   abuseIpDbConfigured?: boolean;
-  securityTrails?: SecurityTrailsInfo | null;
-  securityTrailsConfigured?: boolean;
   censys?: CensysInfo | null;
   censysConfigured?: boolean;
   shodan?: ShodanHostInfo[] | null;
