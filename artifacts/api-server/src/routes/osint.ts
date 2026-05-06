@@ -231,48 +231,63 @@ async function get_commoncrawl_subdomains(
     id?: string;
     "cdx-api"?: string;
   }>;
-  const latestIndexUrl = indexes[0]?.["cdx-api"];
+  const indexUrls = indexes
+    .slice(0, 3)
+    .map((index) => index["cdx-api"])
+    .filter((url): url is string => Boolean(url));
 
-  if (!latestIndexUrl) {
+  if (indexUrls.length === 0) {
     throw new Error("Common Crawl index list did not include a CDX API URL");
-  }
-
-  const queryUrl = new URL(latestIndexUrl);
-  queryUrl.search = new URLSearchParams({
-    url: `*.${domain}/*`,
-    output: "json",
-    fl: "url",
-    filter: "status:200",
-    collapse: "urlkey",
-    limit: "100",
-  }).toString();
-
-  const resp = await fetch(queryUrl, {
-    headers: { "User-Agent": "OSINT-Demo/1.0 (educational)" },
-    signal: AbortSignal.timeout(12000),
-  });
-
-  if (!resp.ok) {
-    throw new Error(`Common Crawl CDX returned ${resp.status}`);
   }
 
   const seen = new Set<string>();
   const subdomains: { name: string }[] = [];
-  const text = await resp.text();
 
-  for (const line of text.split(/\n/)) {
-    if (!line.trim()) continue;
-    try {
-      const item = JSON.parse(line) as { url?: string };
-      if (!item.url) continue;
-      const hostname = new URL(item.url).hostname;
-      const name = normalize_subdomain_name(hostname, domain);
-      if (!name || seen.has(name)) continue;
-      seen.add(name);
-      subdomains.push({ name });
-    } catch {
-      // Skip malformed CDX lines and invalid URLs.
+  const results = await Promise.allSettled(
+    indexUrls.map(async (indexUrl) => {
+      const queryUrl = new URL(indexUrl);
+      queryUrl.search = new URLSearchParams({
+        url: `*.${domain}/*`,
+        output: "json",
+        fl: "url",
+        filter: "status:200",
+        limit: "1000",
+      }).toString();
+
+      const resp = await fetch(queryUrl, {
+        headers: { "User-Agent": "OSINT-Demo/1.0 (educational)" },
+        signal: AbortSignal.timeout(15000),
+      });
+
+      if (!resp.ok) {
+        throw new Error(`Common Crawl CDX returned ${resp.status}`);
+      }
+
+      return resp.text();
+    }),
+  );
+
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+
+    for (const line of result.value.split(/\n/)) {
+      if (!line.trim()) continue;
+      try {
+        const item = JSON.parse(line) as { url?: string };
+        if (!item.url) continue;
+        const hostname = new URL(item.url).hostname;
+        const name = normalize_subdomain_name(hostname, domain);
+        if (!name || seen.has(name)) continue;
+        seen.add(name);
+        subdomains.push({ name });
+      } catch {
+        // Skip malformed CDX lines and invalid URLs.
+      }
     }
+  }
+
+  if (subdomains.length === 0 && results.every((r) => r.status === "rejected")) {
+    throw new Error("Common Crawl CDX queries failed");
   }
 
   return subdomains;
