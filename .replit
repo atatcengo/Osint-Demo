@@ -92,11 +92,3 @@ externalPort = 3001
 [[ports]]
 localPort = 25389
 externalPort = 3000
-
-[userenv]
-
-[userenv.shared]
-SHODAN_API_KEY = "hzwl4FQ6HMmqOexg1EfwzVVoJ15PmJHj"
-VIRUSTOTAL_API_KEY = "39d085b6feba08d4cab00f71f374d5dfd6023ad088500ad476c5dba9947feb5e"
-ABUSEIPDB_API_KEY = "836d0ea0e60996ccade8a43b08cd9f493a258b10c4901d668d0e08ba4a07ffd166afb2e5c839f469"
-URLSCAN_API_KEY = "019df87a-0f7e-768c-84db-d2023ecbe6cf"
