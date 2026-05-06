@@ -69,6 +69,35 @@ waitForPort = 8081
 PORT = "8081"
 BASE_PATH = "/__mockup"
 
+[[workflows.workflow]]
+name = "Project"
+author = "agent"
+mode = "parallel"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+artifactId = "artifacts/osint-demo"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run dev"
+cwd = "./artifacts/api-server"
+waitForPort = 8080
+
+[workflows.workflow.tasks.env]
+PORT = "8080"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/osint-demo run dev"
+cwd = "./artifacts/osint-demo"
+waitForPort = 25389
+router = "path"
+
+[workflows.workflow.tasks.env]
+PORT = "25389"
+BASE_PATH = "/"
+
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
