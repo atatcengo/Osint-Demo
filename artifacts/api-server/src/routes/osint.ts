@@ -286,10 +286,6 @@ async function get_commoncrawl_subdomains(
     }
   }
 
-  if (subdomains.length === 0 && results.every((r) => r.status === "rejected")) {
-    throw new Error("Common Crawl CDX queries failed");
-  }
-
   return subdomains;
 }
 
@@ -306,20 +302,7 @@ async function get_passive_subdomains(
       result.status === "fulfilled",
   );
 
-  if (fulfilled.length > 0) {
-    return merge_subdomains(...fulfilled.map((result) => result.value));
-  }
-
-  throw new Error(
-    [crtshResult, commonCrawlResult]
-      .map((result) =>
-        result.status === "rejected"
-          ? result.reason?.message ?? "subdomain source failed"
-          : undefined,
-      )
-      .filter(Boolean)
-      .join("; "),
-  );
+  return merge_subdomains(...fulfilled.map((result) => result.value));
 }
 
 // Resolve DNS records using Node.js dns/promises
@@ -626,6 +609,28 @@ async function get_urlscan_info(
         }))
         .filter((item) => item.url) ?? [],
   };
+}
+
+function get_urlscan_subdomains(
+  domain: string,
+  urlscan: UrlscanInfo | null,
+): { name: string }[] {
+  const subdomains: { name: string }[] = [];
+
+  for (const item of urlscan?.results ?? []) {
+    for (const value of [item.pageDomain, item.url]) {
+      if (!value) continue;
+      try {
+        const hostname = value.includes("://") ? new URL(value).hostname : value;
+        const name = normalize_subdomain_name(hostname, domain);
+        if (name) subdomains.push({ name });
+      } catch {
+        // Skip invalid URLs.
+      }
+    }
+  }
+
+  return merge_subdomains(subdomains);
 }
 
 // Query Shodan for info about an IP address
@@ -1254,12 +1259,6 @@ router.post("/osint/scan", async (req, res) => {
     get_urlscan_info(domain, process.env["URLSCAN_API_KEY"]),
   ]);
 
-  const subdomains =
-    subdomainsResult.status === "fulfilled"
-      ? subdomainsResult.value
-      : ((errors["subdomains"] = subdomainsResult.reason?.message ?? "Failed"),
-        []);
-
   const dns =
     dnsResult.status === "fulfilled"
       ? dnsResult.value
@@ -1285,6 +1284,11 @@ router.post("/osint/scan", async (req, res) => {
     urlscanResult.status === "fulfilled"
       ? urlscanResult.value
       : ((errors["urlscan"] = urlscanResult.reason?.message ?? "Failed"), null);
+
+  const subdomains = merge_subdomains(
+    subdomainsResult.status === "fulfilled" ? subdomainsResult.value : [],
+    get_urlscan_subdomains(domain, urlscan),
+  );
 
   const abuseIpDbKey = process.env["ABUSEIPDB_API_KEY"];
   const abuseIpDbConfigured = !!abuseIpDbKey;
