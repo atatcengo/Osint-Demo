@@ -24,7 +24,6 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useRunOsintScan,
-  useGenerateOsintReport,
   useGetOsintConfig,
   getGetOsintConfigQueryKey,
   useListScanHistory,
@@ -77,7 +76,7 @@ const formSchema = z.object({
     ),
 });
 
-function buildFallbackReport(scanResult: ScanResult): string {
+function buildMarkdownReport(scanResult: ScanResult): string {
   const lines = [
     "# Passive OSINT Report",
     "",
@@ -92,6 +91,15 @@ function buildFallbackReport(scanResult: ScanResult): string {
       `- **Score:** ${scanResult.riskSummary.score}/100`,
       `- **Level:** ${scanResult.riskSummary.level.toUpperCase()}`,
     );
+
+    if (scanResult.riskSummary.findings.length > 0) {
+      lines.push("", "| Severity | Finding | Detail |", "|----------|---------|--------|");
+      for (const finding of scanResult.riskSummary.findings) {
+        lines.push(
+          `| ${finding.severity} | ${finding.label} | ${finding.detail} |`,
+        );
+      }
+    }
   }
 
   lines.push(
@@ -108,6 +116,46 @@ function buildFallbackReport(scanResult: ScanResult): string {
       `### ${type}`,
       ...(records as string[]).map((record) => `- ${record}`),
     );
+  }
+
+  if (scanResult.dnsSecurity) {
+    lines.push(
+      "",
+      "## DNS Security Posture",
+      `- **SPF:** ${scanResult.dnsSecurity.spf.join(", ") || "Missing"}`,
+      `- **DMARC:** ${scanResult.dnsSecurity.dmarc || "Missing"}`,
+      `- **CAA:** ${scanResult.dnsSecurity.caa.join(", ") || "Missing"}`,
+      `- **DNSSEC DS:** ${
+        scanResult.dnsSecurity.dnssec ? "Present" : "Missing"
+      }`,
+      `- **MTA-STS:** ${scanResult.dnsSecurity.mtaSts || "Missing"}`,
+      `- **TLS-RPT:** ${scanResult.dnsSecurity.tlsRpt || "Missing"}`,
+    );
+  }
+
+  if (scanResult.whois) {
+    lines.push(
+      "",
+      "## WHOIS Registration",
+      `- **Server:** ${scanResult.whois.server || "Unknown"}`,
+      `- **Registrar:** ${scanResult.whois.registrar || "Unknown"}`,
+      `- **Created:** ${scanResult.whois.creationDate || "Unknown"}`,
+      `- **Expires:** ${scanResult.whois.expirationDate || "Unknown"}`,
+    );
+  }
+
+  if (scanResult.urlscan?.results.length) {
+    lines.push("", "## urlscan.io Search");
+    for (const item of scanResult.urlscan.results) {
+      lines.push(`- ${item.url}${item.ip ? ` (${item.ip})` : ""}`);
+    }
+  }
+
+  if (scanResult.cisaKev?.matched.length) {
+    lines.push("", "## CISA Known Exploited Vulnerabilities");
+    for (const item of scanResult.cisaKev.matched) {
+      lines.push(`- ${item.cveID}: ${item.vulnerabilityName || "Known exploited CVE"}`);
+    }
   }
 
   lines.push(
@@ -164,7 +212,6 @@ export default function Home() {
   });
 
   const runScan = useRunOsintScan();
-  const generateReport = useGenerateOsintReport();
 
   const renderStatusBadge = (present: boolean) => (
     <Badge
@@ -218,34 +265,20 @@ export default function Home() {
     form.setValue("domain", result.domain);
   };
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     if (!scanResult) return;
-    try {
-      const report = await generateReport.mutateAsync({ data: scanResult });
-      const blob = new Blob([report.content], { type: "text/markdown" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = report.filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Failed to generate report", error);
-      const fallbackContent = buildFallbackReport(scanResult);
-      const blob = new Blob([fallbackContent], { type: "text/markdown" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `osint-report-${scanResult.domain}-${new Date()
-        .toISOString()
-        .slice(0, 10)}.md`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
+    const content = buildMarkdownReport(scanResult);
+    const blob = new Blob([content], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `osint-report-${scanResult.domain}-${new Date()
+      .toISOString()
+      .slice(0, 10)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -458,11 +491,10 @@ export default function Home() {
               <Button
                 variant="outline"
                 onClick={handleDownload}
-                disabled={generateReport.isPending}
                 className="border-primary/30 hover:bg-primary/10"
               >
                 <Download className="w-4 h-4 mr-2" />
-                {generateReport.isPending ? "GENERATING..." : "DOWNLOAD_REPORT"}
+                DOWNLOAD_REPORT
               </Button>
             </div>
 
