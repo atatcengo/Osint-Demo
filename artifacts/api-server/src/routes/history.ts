@@ -1,12 +1,29 @@
 import { Router } from "express";
-import { db, scanHistoryTable } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 
 const router = Router();
 
+async function get_history_db() {
+  if (!process.env["DATABASE_URL"]) return null;
+
+  try {
+    const { db, scanHistoryTable } = await import("@workspace/db");
+    return { db, scanHistoryTable };
+  } catch {
+    return null;
+  }
+}
+
 // GET /api/history — list all scan history entries, newest first
 router.get("/history", async (req, res) => {
   try {
+    const historyDb = await get_history_db();
+    if (!historyDb) {
+      res.json([]);
+      return;
+    }
+
+    const { db, scanHistoryTable } = historyDb;
     const rows = await db
       .select()
       .from(scanHistoryTable)
@@ -36,6 +53,18 @@ router.post("/history", async (req, res) => {
   }
 
   try {
+    const historyDb = await get_history_db();
+    if (!historyDb) {
+      res.status(201).json({
+        id: 0,
+        domain: body.domain,
+        scannedAt: new Date().toISOString(),
+        result: body,
+      });
+      return;
+    }
+
+    const { db, scanHistoryTable } = historyDb;
     const [row] = await db
       .insert(scanHistoryTable)
       .values({
@@ -65,6 +94,13 @@ router.get("/history/:id", async (req, res) => {
   }
 
   try {
+    const historyDb = await get_history_db();
+    if (!historyDb) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+
+    const { db, scanHistoryTable } = historyDb;
     const [row] = await db
       .select()
       .from(scanHistoryTable)
@@ -97,6 +133,13 @@ router.delete("/history/:id", async (req, res) => {
   }
 
   try {
+    const historyDb = await get_history_db();
+    if (!historyDb) {
+      res.status(204).send();
+      return;
+    }
+
+    const { db, scanHistoryTable } = historyDb;
     const deleted = await db
       .delete(scanHistoryTable)
       .where(eq(scanHistoryTable.id, id))
