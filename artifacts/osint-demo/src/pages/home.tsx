@@ -77,6 +77,48 @@ const formSchema = z.object({
     ),
 });
 
+function buildFallbackReport(scanResult: ScanResult): string {
+  const lines = [
+    "# Passive OSINT Report",
+    "",
+    `**Target Domain:** \`${scanResult.domain}\``,
+    `**Date/Time:** ${scanResult.timestamp}`,
+  ];
+
+  if (scanResult.riskSummary) {
+    lines.push(
+      "",
+      "## Risk Summary",
+      `- **Score:** ${scanResult.riskSummary.score}/100`,
+      `- **Level:** ${scanResult.riskSummary.level.toUpperCase()}`,
+    );
+  }
+
+  lines.push(
+    "",
+    "## Subdomains",
+    ...scanResult.subdomains.map((sub) => `- ${sub.name}`),
+    "",
+    "## DNS Records",
+  );
+
+  for (const [type, records] of Object.entries(scanResult.dns)) {
+    lines.push(
+      ``,
+      `### ${type}`,
+      ...(records as string[]).map((record) => `- ${record}`),
+    );
+  }
+
+  lines.push(
+    "",
+    "---",
+    "Generated from the current browser scan result.",
+  );
+
+  return lines.join("\n");
+}
+
 export default function Home() {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const queryClient = useQueryClient();
@@ -191,6 +233,18 @@ export default function Home() {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Failed to generate report", error);
+      const fallbackContent = buildFallbackReport(scanResult);
+      const blob = new Blob([fallbackContent], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `osint-report-${scanResult.domain}-${new Date()
+        .toISOString()
+        .slice(0, 10)}.md`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
   };
 

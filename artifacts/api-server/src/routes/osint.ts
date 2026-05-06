@@ -1,7 +1,7 @@
 import { Router } from "express";
 import dns from "dns/promises";
 import net from "node:net";
-import { RunOsintScanBody, GenerateOsintReportBody } from "@workspace/api-zod";
+import { RunOsintScanBody } from "@workspace/api-zod";
 
 const router = Router();
 
@@ -1403,15 +1403,20 @@ router.post("/osint/scan", async (req, res) => {
 
 // POST /api/osint/report — generate a Markdown report from scan results
 router.post("/osint/report", (req, res) => {
-  const parseResult = GenerateOsintReportBody.safeParse(req.body);
-  if (!parseResult.success) {
+  const body = req.body as Partial<ScanResultForReport>;
+  if (!body || typeof body.domain !== "string" || !body.domain) {
     res.status(400).json({ error: "Invalid request body" });
     return;
   }
 
-  const scanResult = parseResult.data as Parameters<
-    typeof generate_markdown_report
-  >[0];
+  const scanResult = {
+    ...body,
+    timestamp: body.timestamp ?? new Date().toISOString(),
+    subdomains: body.subdomains ?? [],
+    dns: body.dns ?? { A: [], MX: [], TXT: [], NS: [] },
+    shodanConfigured: body.shodanConfigured ?? false,
+    virusTotalConfigured: body.virusTotalConfigured ?? false,
+  } as ScanResultForReport;
   const content = generate_markdown_report(scanResult);
   const filename = `osint-report-${scanResult.domain}-${new Date().toISOString().slice(0, 10)}.md`;
 
